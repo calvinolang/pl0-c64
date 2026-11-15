@@ -26,7 +26,7 @@ def run(md, argv=None):
         p = os.path.join(d, "doc.md")
         with open(p, "w") as f:
             f.write(md)
-        r = subprocess.run([sys.executable, tool, "--host", host, "--timeout", "1"] + (argv or [p]),
+        r = subprocess.run([sys.executable, tool, "--host", host, "--timeout", "0.5"] + (argv or [p]),
                            capture_output=True, text=True)
         return r.returncode, r.stdout
 

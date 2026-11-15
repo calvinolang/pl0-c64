@@ -30,8 +30,9 @@ program, and the rest of the info string says what it must do:
 Any other text after `pl0` fails (a typo would silently weaken a check),
 and so does an `output` block that does not follow a `pl0 run` block.
 The step limit is a wall-clock limit (pl0host has no instruction limit):
-5 seconds for `pl0 run` and `pl0 error:` blocks (--timeout changes it), 1
-second for `pl0` blocks, which only need to get past the compiler. pl0host has no keyboard: `?x` always ends with
+5 seconds for `pl0 run` and `pl0 error:` blocks (--timeout changes it),
+half a second (or less, with a smaller --timeout) for `pl0` blocks, which
+only need to get past the compiler. pl0host has no keyboard: `?x` always ends with
 `bad input`, so programs that read input can only be `pl0` blocks.
 
 Exit 0 if every block passes and there is at least one block, 1 if a
@@ -46,7 +47,7 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_FILES = ["README.md", "docs/USER-GUIDE.md", "docs/LANGUAGE.md"]
 TIMEOUT = 5.0           # pl0 run, pl0 error: (--timeout)
-COMPILE_TIMEOUT = 1.0   # pl0: running on is fine, only the compile counts
+COMPILE_TIMEOUT = 0.5   # pl0: running on is fine, only the compile counts
 # the messages the VM reports while running (src/core/errors.c); a `pl0`
 # block may end with one of these, never with a compile error
 RUNTIME = ["division by zero", "domain error", "number overflow",
@@ -143,7 +144,7 @@ def check_file(host, path, problems):
             problems.append("%s: not plain ASCII" % where)
             continue
         mode = words[1].strip() if len(words) > 1 else ""
-        rc, out, err = run(host, text, COMPILE_TIMEOUT if mode == "" else TIMEOUT)
+        rc, out, err = run(host, text, min(COMPILE_TIMEOUT, TIMEOUT) if mode == "" else TIMEOUT)
         e = error_of(err)
         if mode == "":
             if rc is None or rc == 0:
