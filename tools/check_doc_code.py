@@ -18,6 +18,9 @@ program, and the rest of the info string says what it must do:
                          `output`, the program's output must equal it
                          (trailing blanks of each line and trailing empty
                          lines are ignored).
+  ```pl0 example:NAME    it is examples/NAME.pl0, byte for byte (so a copy
+                         of an example in a guide cannot drift from the
+                         file), and it runs cleanly like `pl0 run`.
   ```pl0 error:TEXT      compiling and running it ends with exactly this
                          error: TEXT is the whole line (`ERROR line 3:
                          undeclared name`) or only the message
@@ -163,6 +166,20 @@ def check_file(host, path, problems):
                     between = all_lines[end + 1:nline - 1]
                     if all(not b.strip() for b in between):
                         prev_end_run = out
+        elif mode.startswith("example:"):
+            name = mode[len("example:"):].strip()
+            ex = os.path.join(ROOT, "examples", name + ".pl0")
+            if not re.fullmatch(r"[a-z0-9]+", name) or not os.path.exists(ex):
+                problems.append("%s: no example examples/%s.pl0" % (where, name))
+                continue
+            with open(ex, encoding="ascii") as f:
+                want = f.read()
+            if norm(want) != norm(text):
+                problems.append("%s: differs from examples/%s.pl0" % (where, name))
+            elif rc is None:
+                problems.append("%s: still running after %g s" % (where, TIMEOUT))
+            elif rc != 0 or err.strip():
+                problems.append("%s: does not run cleanly: %s" % (where, e or err.strip() or "exit %d" % rc))
         elif mode.startswith("error:"):
             want = mode[len("error:"):].strip()
             if not want:
@@ -177,7 +194,7 @@ def check_file(host, path, problems):
             elif ERRLINE.match(e).group(2) != want:
                 problems.append("%s: expected `%s`, got `%s`" % (where, want, e))
         else:
-            problems.append("%s: unknown marker `pl0 %s` (use pl0, pl0 run or pl0 error:MESSAGE)"
+            problems.append("%s: unknown marker `pl0 %s` (use pl0, pl0 run, pl0 example:NAME or pl0 error:MESSAGE)"
                             % (where, mode))
     return n
 

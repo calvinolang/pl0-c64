@@ -242,7 +242,8 @@ end.
 ```
 
 If the program has drawn something, `?` switches back to the text screen
-for the question; the next drawing statement shows the drawing again.
+for the question; the next line the program draws shows the drawing
+again.
 
 The host driver used by the tests has no keyboard: there `?` always
 ends with `bad input`.

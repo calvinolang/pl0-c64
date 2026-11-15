@@ -41,9 +41,12 @@ GOOD = "\n".join([
     F + "pl0 error:ERROR line 2: division by zero", "begin", "!1/0 end.", F, "",
     F + "text", "not PL/0, not checked {", F, "",
     "  " + F + "pl0 run", "  !1.", "  " + F, "",           # indented (in a list)
+    F + "pl0 example:square",
+] + open(os.path.join(os.path.dirname(here), "examples", "square.pl0")).read().rstrip("\n").split("\n") + [
+    F, "",
 ])
 rc, out = run(GOOD)
-check(rc == 0 and "6 PL/0 blocks" in out, "good document rejected: " + out)
+check(rc == 0 and "7 PL/0 blocks" in out, "good document rejected: " + out)
 
 cases = [
     ("compile error in a pl0 block", F + "pl0\nbegin !1 !2 end.\n" + F + "\n", "does not compile"),
@@ -58,6 +61,8 @@ cases = [
     ("error expected, none", F + "pl0 error:stopped\n!1.\n" + F + "\n", "got no error"),
     ("empty error marker", F + "pl0 error:\n!1.\n" + F + "\n", "without a message"),
     ("unknown marker", F + "pl0 runs\n!1.\n" + F + "\n", "unknown marker"),
+    ("example copy that differs", F + "pl0 example:square\nforward(10).\n" + F + "\n", "differs from examples/square.pl0"),
+    ("example that does not exist", F + "pl0 example:nothere\nforward(10).\n" + F + "\n", "no example"),
     ("unterminated fence", F + "pl0\n!1.\n", "unterminated"),
     ("no pl0 blocks at all", "# nothing\n", "nothing was checked"),
 ]
