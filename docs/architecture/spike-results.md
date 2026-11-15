@@ -510,6 +510,14 @@ tuning in spec 10b(5) will matter.
   Reproducer: `tests/c64/cc65_bug_ternary.c` (build command and the wrong
   output in its header; not built by any target). Prefer
   `if` statements to `?:` on locals in C64 code, and test on the target.
+- **cc65 2.18 `-O` miscompiles `(int16_t)i - n`** with `i`, `n` unsigned
+  char (found by Task 12b on the target): the subtraction is done in 8 bits
+  with the high byte forced to 0, so `0 - 1` gives 255, not -1. In
+  `compiler.c` this made every procedure parameter offset positive, and
+  every parameter read 0 on the C64 (the host was right). Cast both
+  operands: `(int16_t)i - (int16_t)n`. Reproducer:
+  `tests/c64/cc65_bug_sub.c`. A scan of all generated C64 assembly for an
+  `sbc` followed by `ldx #$00` found no other case.
 - **Character codes** (Task 12 had them differ by module; resolved by
   Task 12b, see "Text encoding" below: ASCII everywhere inside the
   program).
@@ -528,6 +536,13 @@ tuning in spec 10b(5) will matter.
   are skipped. Later code must not rely on TI across `gfx_line` calls (time
   drawings with the CIA timers instead). `gfx_open` points the RAM NMI
   vector `$FFFA` at an `RTI`.
+
+### Memory of the real core (Task 12b)
+
+The measured memory map of the whole core on the C64 (per-module sizes,
+BSS end, free bytes, where the source buffer and `Program` live) is in
+`docs/architecture/memory-map.md`; the C64 run time of every example is
+the "C64 s" column of `examples-budget.md`.
 
 ### Text encoding (Task 12b, binding)
 
