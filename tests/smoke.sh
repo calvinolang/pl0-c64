@@ -8,10 +8,12 @@
 # (tests/need_vice.sh): missing, the run fails with install hints, or with
 # ALLOW_NO_VICE=1 prints `SKIPPED: VICE not installed` and exits 0.
 cd "$(dirname "$0")/.." || exit 2
+# build/smoke/SKIPPED tells make check that the on-target part was skipped
+mkdir -p build/smoke && rm -f build/smoke/SKIPPED
 sh tests/need_vice.sh
 case $? in
   0) ;;
-  3) echo "SKIPPED: VICE not installed (ALLOW_NO_VICE=1)"; exit 0 ;;
+  3) echo "SKIPPED: VICE not installed (ALLOW_NO_VICE=1)"; : > build/smoke/SKIPPED; exit 0 ;;
   *) exit 1 ;;
 esac
 # target:limit in seconds (about 3x the measured time)
@@ -28,7 +30,7 @@ for item in $SUITE; do
   n=$((n + 1))
   printf '[%d/%d] make %s ... ' $n "$total" "$t"
   start=$(date +%s)
-  timeout "$lim" make --no-print-directory "$t" > "build/smoke/$t.log" 2>&1
+  timeout "$lim" ${MAKE:-make} --no-print-directory "$t" > "build/smoke/$t.log" 2>&1
   rc=$?
   secs=$(( $(date +%s) - start ))
   if [ $rc -eq 0 ]; then

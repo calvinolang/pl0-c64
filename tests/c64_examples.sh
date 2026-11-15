@@ -41,6 +41,10 @@ while IFS='	' read -r name result run comp cycles; do
     fi
 done <"$tsv"
 n=$(wc -l <"$tsv" | tr -d ' ')
+nfiles=$(ls examples/*.pl0 2>/dev/null | wc -l | tr -d ' ')
+if [ "$n" -eq 0 ] || [ "$n" -ne "$nfiles" ]; then
+    echo "$n result(s) for $nfiles example(s)"; exit 1
+fi
 if [ "$1" = --record ]; then
     { echo "# example	C64 seconds, compile + run (tests/c64_examples.sh --record)"
       cat "$tsv.total"; } >docs/architecture/c64-times.tsv

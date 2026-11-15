@@ -17,8 +17,10 @@
 #                     and the drive) instead of injecting the .prg into RAM
 #   --snap            RAM snapshot handshake ($02A7/$02A8): OUTDIR/snapN.bin
 #                     holds all 64 KB of RAM at step N (tests/c64/gfx_check.c)
-#   --check CMD       after the screen check passed, run `CMD OUTDIR` (word
-#                     split) and fail if it fails (e.g. tools/check_bitmap.py)
+#   --check CMD       after the screen check passed, run `CMD OUTDIR` (CMD
+#                     is evaluated as shell words, so quote a path that may
+#                     hold spaces: --check "python3 tools/check_app.py '$EXP'";
+#                     OUTDIR is passed as one word) and fail if it fails
 #   --work NAME       work directory build/vice/NAME instead of the prg name
 # Exit: 0 expected line found (and the check passed); 1 otherwise (fail
 # text, cycle limit, VICE error, timeout or failed check); the screen is
@@ -54,7 +56,7 @@ pkill -f -- "-config $out/vicerc" 2>/dev/null
 if [ $rc -eq 0 ]; then
   grep -v '^ *$' "$out/screen.txt"
   if [ -n "$check" ]; then
-    $check "$out" || { echo "vice_run: FAILED check: $check $out"; exit 1; }
+    eval "$check \"\$out\"" || { echo "vice_run: FAILED check: $check $out"; exit 1; }
   fi
   echo "vice_run: OK, screen shows the line '$expected'"
   exit 0

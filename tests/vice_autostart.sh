@@ -34,9 +34,9 @@ BAR=' F1 Run F2 New F3 Open F5 Save F7 Help'
 DRAWKEY='-- SPACE: DRAWING  ANY KEY: EDITOR --'
 boot=$(printf ' PL/0   %-16sL %s  C %s' SQUARE 1 1)
 
-[ -f $PRG ] && [ -f $IMG ] || { echo "vice_autostart: $PRG or $IMG missing (make c64 disk)"; exit 1; }
+[ -f "$PRG" ] && [ -f "$IMG" ] || { echo "vice_autostart: $PRG or $IMG missing (make c64 disk)"; exit 1; }
 [ -x build/pl0host ] || { echo "vice_autostart: build/pl0host missing (make host)"; exit 1; }
-main=$(awk '$3 == "._main" { print substr($2, 3) }' $LBL)
+main=$(awk '$3 == "._main" { print substr($2, 3) }' "$LBL")
 [ -n "$main" ] || { echo "vice_autostart: _main not in $LBL"; exit 1; }
 mkdir -p "$W"
 echo "break $main" > "$W/moncommands.txt"
@@ -50,13 +50,13 @@ ALL="d64 prg"
 pass=0; fail=0; failed=
 for CASE in $ALL; do
   case $CASE in
-    d64) file=$W/pl0.d64; cp $IMG "$file" ;;   # a copy: nothing may write to build/pl0.d64
+    d64) file=$W/pl0.d64; cp "$IMG" "$file" ;;   # a copy: nothing may write to build/pl0.d64
     prg) file=$PRG ;;
     *) echo "vice_autostart: unknown case $CASE (d64 or prg)"; exit 2 ;;
   esac
   out=$root/build/vice/autostart_$CASE
   start=$(date +%s)
-  sh tests/vice_run.sh --as-user --work "autostart_$CASE" --check "python3 tools/check_app.py $EXP" \
+  sh tests/vice_run.sh --as-user --work "autostart_$CASE" --check "python3 tools/check_app.py '$EXP'" \
     --vice -drive8truedrive --vice -moncommands --vice "$W/moncommands.txt" \
     --on "$boot" "bsave \"$out/boot.bin\" 0 0400 07e7" --on "$boot" 'keybuf \x85' \
     --on "$DRAWKEY" pause --on "$DRAWKEY" "bsave \"$out/draw.bin\" 0 0000 ffff" \

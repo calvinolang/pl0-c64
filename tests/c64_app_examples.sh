@@ -45,15 +45,26 @@ status() { printf ' PL/0   %-16sL %s  C %s' "$1" "$2" "$3"; }
 downs() { [ "$1" -gt 0 ] && printf '\\x11%.0s' $(seq "$1"); }
 dump() { printf 'bsave "%s/%s" 0 %s' "$OUT" "$1" "$2"; }
 
-[ -f $PRG ] && [ -f $IMG ] || { echo "c64_app_examples: $PRG or $IMG missing (make c64 disk)"; exit 1; }
+[ -f "$PRG" ] && [ -f "$IMG" ] || { echo "c64_app_examples: $PRG or $IMG missing (make c64 disk)"; exit 1; }
 [ -x build/pl0host ] || { echo "c64_app_examples: build/pl0host missing (make host)"; exit 1; }
-brk=$(awk '$3 == "._turtle_used" { print substr($2, 3) }' $LBL)
+brk=$(awk '$3 == "._turtle_used" { print substr($2, 3) }' "$LBL")
 [ -n "$brk" ] || { echo "c64_app_examples: _turtle_used not in $LBL"; exit 1; }
 mkdir -p "$W"
-python3 tools/mkdisk.py --index examples | awk '{ print $1 }' > "$W/order.txt" || exit 1
+# the INDEX order (no pipeline: its status would be awk's, not mkdisk's)
+python3 tools/mkdisk.py --index examples > "$W/index.txt" ||
+  { echo "c64_app_examples: tools/mkdisk.py --index failed"; exit 1; }
+awk '{ print $1 }' "$W/index.txt" > "$W/order.txt" || exit 1
+nindex=$(wc -l < "$W/order.txt" | tr -d ' ')
+nfiles=$(ls examples/*.pl0 2>/dev/null | wc -l | tr -d ' ')
+[ "$nindex" -eq "$nfiles" ] && [ "$nindex" -gt 0 ] ||
+  { echo "c64_app_examples: INDEX has $nindex entries, examples/ has $nfiles programs"; exit 1; }
 names=$*
 [ -n "$names" ] || names=$(tr 'A-Z' 'a-z' < "$W/order.txt")
 total=$(echo $names | wc -w)
+[ "$total" -gt 0 ] || { echo "c64_app_examples: no examples to run"; exit 1; }
+if [ $# -eq 0 ] && [ "$total" -ne "$nfiles" ]; then
+  echo "c64_app_examples: $total examples to run, examples/ has $nfiles"; exit 1
+fi
 tsv=$W/times.tsv
 : > "$tsv"
 n=0; fail=0
@@ -63,7 +74,7 @@ for name in $names; do
   pos=$(grep -nx "$NAME" "$W/order.txt" | cut -d: -f1)
   [ -n "$pos" ] || { echo "c64_app_examples: $NAME is not in INDEX"; fail=$((fail + 1)); continue; }
   img=$W/$name.d64
-  cp $IMG "$img"
+  cp "$IMG" "$img"
   EXP=$W/expect_$name.txt
   on=$(status "$NAME" 1 1)
   if [ -f "examples/$name.lines" ]; then
@@ -79,7 +90,7 @@ for name in $names; do
   printf '%s\n' "screen" "row 0 $on" "row 24 $BAR" "text mem.bin examples/$name.pl0" >> "$EXP"
   printf '[%d/%d] %-10s (%s, INDEX entry %d) ... ' $n "$total" "$NAME" $kind "$pos"
   start=$(date +%s)
-  sh tests/vice_run.sh --check "python3 tools/check_app.py $EXP" $DRIVE --vice -8 --vice "$img" \
+  sh tests/vice_run.sh --check "python3 tools/check_app.py '$EXP'" $DRIVE --vice -8 --vice "$img" \
     --on "$(status SQUARE 1 1)" 'keybuf \x86' \
     --on "$PICK" "keybuf $(downs $((pos - 1)))\\n" \
     --on "$on" "break $brk" --on "$on" 'sw reset' --on "$on" 'keybuf \x85' \
@@ -87,7 +98,7 @@ for name in $names; do
     --on "$endp" "$(dump out.bin '0400 07e7')" --on "$endp" "$(dump draw.bin '0000 ffff')" \
     --on "$endp" 'keybuf x' \
     --on "$on" "$(dump mem.bin '0000 ffff')" \
-    $PRG "$on" "$CYCLES" > "$W/$name.log" 2>&1
+    "$PRG" "$on" "$CYCLES" > "$W/$name.log" 2>&1
   rc=$?
   wall=$(( $(date +%s) - start ))
   cyc=$(head -1 "$OUT/stops.txt" 2>/dev/null)
@@ -120,5 +131,7 @@ if [ $record -eq 1 ]; then
     sort "$tsv" | awk -F'\t' '{ print $1 "\t" $4 }'; } > docs/architecture/c64-app-times.tsv
   echo "wrote docs/architecture/c64-app-times.tsv (now run tests/run_examples.sh --write-budget)"
 fi
+rows=$(wc -l < "$tsv" | tr -d ' ')
+if [ "$rows" -ne "$total" ]; then echo "c64_app_examples: $rows results for $total examples"; exit 1; fi
 if [ $fail -ne 0 ]; then echo "c64_app_examples: $fail of $n example(s) failed or took more than $LIMIT s"; exit 1; fi
 echo "c64_app_examples: $n example(s) passed through the program, each within $LIMIT s from F1"

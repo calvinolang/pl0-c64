@@ -1,9 +1,12 @@
 name: ci
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   # host: unit tests and the example goldens (no emulator)
   host:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Install toolchain

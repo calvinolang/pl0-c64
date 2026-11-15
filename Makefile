@@ -10,7 +10,7 @@ TEST_SRC := $(wildcard tests/test_*.c)
 TEST_BIN := $(patsubst tests/%.c,$(BUILD)/%,$(TEST_SRC))
 HDRS     := $(wildcard src/*/*.h tests/*.h)
 
-.PHONY: test host examples c64 disk c64-disk c64-app c64-mem c64-mem-doc c64-editor c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples c64-autostart c64-app-examples smoke check check-full dist clean
+.PHONY: test host examples c64 disk c64-disk c64-app c64-mem c64-mem-limits c64-mem-doc c64-editor c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples c64-autostart c64-app-examples smoke check check-full dist clean
 
 test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
@@ -235,7 +235,9 @@ c64-disk: $(C64_BUILD)/disk_check.prg $(BUILD)/pl0.d64
 
 # the whole program with the disk (Task 15): tests/vice_app.sh (run flow,
 # picker, save/load on a 1541 with true drive emulation; several minutes)
-c64-app: $(BUILD)/pl0.prg $(BUILD)/pl0.d64 host c64-mem
+# (needs the memory limits only: a stale memory-map.md fails c64-mem and
+# smoke, not the app cases)
+c64-app: $(BUILD)/pl0.prg $(BUILD)/pl0.d64 host c64-mem-limits
 	sh tests/vice_app.sh
 
 # the memory map of build/pl0.prg: BSS must end at $$97FF at the latest
@@ -245,6 +247,9 @@ c64-app: $(BUILD)/pl0.prg $(BUILD)/pl0.d64 host c64-mem
 MEM_DOC := docs/architecture/memory-map.md
 c64-mem: $(BUILD)/pl0.prg
 	python3 tools/c64_mem.py $(C64_BUILD)/pl0.map --doc $(MEM_DOC)
+
+c64-mem-limits: $(BUILD)/pl0.prg
+	python3 tools/c64_mem.py $(C64_BUILD)/pl0.map
 
 c64-mem-doc: $(BUILD)/pl0.prg
 	python3 tools/c64_mem.py $(C64_BUILD)/pl0.map --write-doc $(MEM_DOC)
@@ -270,20 +275,22 @@ c64-app-examples: $(BUILD)/pl0.prg $(BUILD)/pl0.d64 host
 # and a summary table (tests/smoke.sh). Without VICE (or its ROMs) it
 # fails with install hints; ALLOW_NO_VICE=1 skips it instead.
 smoke:
-	@sh tests/smoke.sh
+	@MAKE="$(MAKE)" sh tests/smoke.sh
 
 # the standard gate: host tests, then the on-target suite
 check:
 	@t0=$$(date +%s); $(MAKE) --no-print-directory test && $(MAKE) --no-print-directory smoke; \
 	rc=$$?; [ $$rc -eq 0 ] && r=PASSED || r=FAILED; \
+	[ $$rc -eq 0 ] && [ -f $(BUILD)/smoke/SKIPPED ] && r="PASSED (on-target SKIPPED)"; \
 	echo "make check: $$r in $$(( $$(date +%s) - t0 )) s"; exit $$rc
 
 # everything: make check, then every example on the C64 twice, through
 # core_check (c64-examples) and through the program (c64-app-examples)
 check-full:
 	@t0=$$(date +%s); $(MAKE) --no-print-directory check && \
-	sh tests/smoke.sh c64-examples:1800 c64-app-examples:1800; \
+	MAKE="$(MAKE)" sh tests/smoke.sh c64-examples:1800 c64-app-examples:1800; \
 	rc=$$?; [ $$rc -eq 0 ] && r=PASSED || r=FAILED; \
+	[ $$rc -eq 0 ] && [ -f $(BUILD)/smoke/SKIPPED ] && r="PASSED (on-target SKIPPED)"; \
 	echo "make check-full: $$r in $$(( $$(date +%s) - t0 )) s"; exit $$rc
 
 # the products: build/dist/pl0.prg and build/dist/pl0.d64, the image

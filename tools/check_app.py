@@ -4,7 +4,8 @@ found its final screen line.
 
 usage: check_app.py EXPECTFILE OUTDIR
 
-EXPECTFILE holds one check per line. The screen checks of
+EXPECTFILE holds one check per line (a FILE argument is the rest of
+its line, so it may contain spaces). The screen checks of
 tools/check_editor.py (row, prefix, cursor, reverse) apply to
 OUTDIR/screen.bin, the screen that matched, or to the dump named by the
 last `screen` line; dumps are files the case saved in OUTDIR with the
@@ -130,7 +131,8 @@ def main(argv):
             group.append(line)
             continue
         flush()
-        args = rest.split()
+        # NAME, then FILE: the rest of the line (a path may hold spaces)
+        args = rest.split(None, 1) if kind in ("text", "pbm", "output") else rest.split()
         if kind == "screen":
             screen_name = args[0] if args else "screen.bin"
         elif kind == "text":

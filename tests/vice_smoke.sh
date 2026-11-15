@@ -30,7 +30,7 @@ status() { printf ' PL/0   %-16sL %s  C %s' "$1" "$2" "$3"; }
 # run CASE PRG EXPECTED [--on TRIGGER CMD]...; the expectations are in $EXP
 run() {
   c=$1; prg=$2; want=$3; shift 3
-  sh tests/vice_run.sh --check "python3 tools/check_editor.py $EXP" \
+  sh tests/vice_run.sh --check "python3 tools/check_editor.py '$EXP'" \
     "$@" "$prg" "$want" "$CYCLES" > "build/vice/smoke_$c.log" 2>&1
 }
 

@@ -51,19 +51,21 @@ DRIVE="--vice -drive8type --vice 1541 --vice -drive8truedrive --vice +virtualdev
 # (`none`: no disk in the drive; `nodrive`: no drive 8 at all)
 run() {
   img=$1; want=$2; shift 2
+  # the disk options go in front of the triggers as separate words (the
+  # image path may contain spaces)
   case $img in
-    none) disk= ;;
-    nodrive) disk="--vice -drive8type --vice 0" ;;
-    *) disk="--vice -8 --vice $img" ;;
+    none) ;;
+    nodrive) set -- --vice -drive8type --vice 0 "$@" ;;
+    *) set -- --vice -8 --vice "$img" "$@" ;;
   esac
   # shellcheck disable=SC2086
-  sh tests/vice_run.sh --check "python3 tools/check_app.py $EXP" $DRIVE $disk \
-    "$@" $PRG "$want" "$CYCLES" > "$W/$CASE.log" 2>&1 ||
+  sh tests/vice_run.sh --check "python3 tools/check_app.py '$EXP'" $DRIVE \
+    "$@" "$PRG" "$want" "$CYCLES" > "$W/$CASE.log" 2>&1 ||
     { cat "$W/$CASE.log"; return 1; }
   cat "$W/$CASE.log" >> "$W/$CASE.all.log"
 }
 
-fresh() { cp $IMG "$W/$1.d64"; echo "$W/$1.d64"; }
+fresh() { cp "$IMG" "$W/$1.d64"; echo "$W/$1.d64"; }
 
 # disk_file IMAGE NAME WANTFILE: the SEQ file NAME on the image holds the
 # bytes of WANTFILE
@@ -195,7 +197,7 @@ case_save_bad_name() {
 # bytes), CRLF (CR LF line ends, a tab, a CR alone)
 picker_image() {
   img=$W/$CASE.d64
-  cp $IMG "$img"
+  cp "$IMG" "$img"
   for u in U05 U02 U09 U01 U07 U03 U08 U04 U06; do
     printf '!%s.\n' "$u" | tr 'U' '1' > "$W/$u.pl0"
     c1541 "$img" -write "$W/$u.pl0" "$(echo $u | tr 'U' 'u'),s" > /dev/null || return 1
@@ -270,7 +272,7 @@ case_missing_file() {
 # with a fine drive status, DK_READ, could not be injected.)
 case_read_error() {
   img=$W/$CASE.d64
-  cp $IMG "$img"
+  cp "$IMG" "$img"
   python3 -c "
 import sys
 for i in range(205): sys.stdout.write('{ line %03d abcdefghijklmnopqrstuvwxy }\n' % i)" > "$W/full.pl0"
@@ -328,7 +330,7 @@ case_no_disk() {
 # load it into the buffer under the BASIC ROM, save it as COPY, compare
 case_source_at_a000() {
   img=$W/$CASE.d64
-  cp $IMG "$img"
+  cp "$IMG" "$img"
   python3 -c "
 import sys
 for i in range(205): sys.stdout.write('{ line %03d abcdefghijklmnopqrstuvwxy }\n' % i)" > "$W/full.pl0"
@@ -346,7 +348,7 @@ for i in range(205): sys.stdout.write('{ line %03d abcdefghijklmnopqrstuvwxy }\n
 ALL="run_factorial run_error drawing_runs input_after_drawing stop_with_runstop
 save_roundtrip save_bad_name picker missing_file read_error no_disk source_at_a000"
 [ $# -gt 0 ] && ALL=$*
-[ -f $PRG ] && [ -f $IMG ] || { echo "vice_app: $PRG or $IMG missing (make c64 disk)"; exit 1; }
+[ -f "$PRG" ] && [ -f "$IMG" ] || { echo "vice_app: $PRG or $IMG missing (make c64 disk)"; exit 1; }
 [ -x build/pl0host ] || { echo "vice_app: build/pl0host missing (make host)"; exit 1; }
 pass=0; fail=0; failed=
 for CASE in $ALL; do
