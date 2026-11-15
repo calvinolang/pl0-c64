@@ -10,7 +10,7 @@ TEST_SRC := $(wildcard tests/test_*.c)
 TEST_BIN := $(patsubst tests/%.c,$(BUILD)/%,$(TEST_SRC))
 HDRS     := $(wildcard src/*/*.h tests/*.h)
 
-.PHONY: test host c64 clean
+.PHONY: test host examples c64 clean
 
 test: $(TEST_BIN)
 	@python3 tools/check_error_docs.py
@@ -30,6 +30,9 @@ host:
 	@test -f src/host/pl0host.c || { echo "error: src/host/pl0host.c does not exist yet"; exit 1; }
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -o $(BUILD)/pl0host src/host/pl0host.c $(LIB_SRC) -lm
+
+examples: host
+	@sh tests/run_examples.sh
 
 c64:
 	@echo "c64 target not implemented yet (needs cc65)"
