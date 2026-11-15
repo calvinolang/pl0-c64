@@ -522,7 +522,7 @@ tuning in spec 10b(5) will matter.
   or `#pragma charmap`) to match an ASCII source buffer, or not.
 - Text output (`src/c64/io_c64.s`) uses its own cursor; the KERNAL and
   cc65 `conio` cursors are not updated. Output is in the upper/lower case
-  character set (`$D018 = $17`), wraps eagerly at column 40 and scrolls
+  character set (`$D018 = $17`), wraps at column 40 (deferred: 40 characters and a new line take one row) and scrolls
   screen and colour RAM.
 - `io_break` reads the keyboard matrix itself (`$DC00 = $7F`, `$DC01`
   bit 7) and the KERNAL buffer for code 3: 35 cycles per call when idle,
