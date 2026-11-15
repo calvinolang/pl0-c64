@@ -123,6 +123,23 @@ static void wrapping(void)
     check(i, "wrap");
 }
 
+/* deferred wrap: 40 characters and a new line take one row, and a
+ * character after exactly 40 goes to the next row */
+static void wrap40(void)
+{
+    hundred[40] = 0;
+    io_text_open();
+    io_put_str(hundred);            /* 40 characters */
+    io_put_nl();
+    io_put_str("x");
+    io_put_nl();
+    io_put_str(hundred);
+    io_put_str("y");                /* no new line: wraps by itself */
+    check(row_is(1, "x"), "40 + new line: x on the next row");
+    check(row_is(3, "y") && row_is(4, ""), "40 + y: y on the next row");
+    check(SCREEN[40 * 2] == 1 && SCREEN[40 * 2 + 39] == 14, "40 characters on row 2");
+}
+
 static void charset(void)
 {
     static const uint8_t want[] = {65, 90, 1, 26, 48, 57, 0, 27, 29, 100, 32, 33, 63, 46, 69};
@@ -222,6 +239,7 @@ int main(void)
     STEP = 0; ACK = 0;
     scrolling();
     wrapping();
+    wrap40();
     charset();
     read_one("feed1", "12.5");      /* 12.5 RETURN */
     read_one("feed2", "-3");        /* -3 RETURN */
@@ -234,6 +252,9 @@ int main(void)
     read_one("feed10", "1.11111111\xC5+19");  /* 25 ones: only 20 kept */
     read_one("feed11", "1000");     /* 1e3 RETURN: lower case e */
     read_one("feed12", "-0.025");   /* -2.5E-2 RETURN: shifted E */
+    read_one("feed13", "3");        /* +3 RETURN: plus sign like the host */
+    read_one("feed14", "7");        /* space space 7 space RETURN */
+    read_one("feed15", 0);          /* -+3 RETURN: second sign */
     stop_key();
     if (failures == 0) io_put_str("PASS");
     else { io_put_str("FAIL "); io_put_str(u2s(failures)); }

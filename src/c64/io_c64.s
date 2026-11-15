@@ -6,8 +6,12 @@
 ; $D800 in the current text colour ($0286, which cc65 textcolor() also
 ; sets). The cursor is our own: `pos` = row*40 + col (0..999, so a cursor
 ; never set by io_text_open is the top left corner) and `col`; the KERNAL
-; and cc65 conio cursors are neither used nor updated. Wrapping is eager:
-; the 40th character of a row moves the cursor to the start of the next.
+; and cc65 conio cursors are neither used nor updated. Wrapping is
+; deferred: after the 40th character of a row the cursor stays in column 39
+; with a wrap pending; the next character (or io_show) starts the next row
+; first, while io_put_nl just goes to the next row, so 40 characters and a
+; new line take one row, not two. (io_read_num shows its cursor with
+; io_show, so during input the wrap happens as soon as column 39 is typed.)
 ; A new line below row 24 scrolls screen and colour RAM up one row (cc65
 ; conio would write past $07E7 instead: spike-results.md section 1).
 ; io_put_str takes ASCII, shown in the upper/lower case character set
@@ -59,6 +63,8 @@ STOPCODE = 3            ; its PETSCII code
 .bss
 pos:    .res 2          ; cursor: row*40 + col, 0..999
 col:    .res 1          ; 0..39
+wrap:   .res 1          ; nonzero: a character was written in column 39 and
+                        ; the move to the next row is still pending
 _io_brk_armed: .res 1   ; bit 7 set: a matrix press will be reported
 
 .code
@@ -71,6 +77,7 @@ _io_text_open:
         stx     pos
         stx     pos+1
         stx     col
+        stx     wrap
 @clr:   lda     #$20
         sta     SCREEN,x
         sta     SCREEN+$100,x
@@ -104,21 +111,31 @@ _io_put_str:
         bne     @next
 @end:   rts
 
-; void __fastcall__ io_putc(uint8_t c): ASCII c at the cursor, advance, wrap
+; void __fastcall__ io_putc(uint8_t c): ASCII c at the cursor, advance;
+; in column 39 the cursor stays and the wrap is left pending
 _io_putc:
         jsr     _io_scr
-        jsr     _io_show
+        jsr     _io_show        ; takes a pending wrap first
+        lda     col
+        cmp     #39
+        bcs     @pend
+        inc     col
         inc     pos
         bne     :+
         inc     pos+1
-:       inc     col
-        lda     col
-        cmp     #40
-        beq     _io_put_nl
+:       rts
+@pend:  sta     wrap            ; A = 39: nonzero
         rts
 
-; void __fastcall__ io_show(uint8_t sc): screen code sc at the cursor
+; void __fastcall__ io_show(uint8_t sc): screen code sc at the cursor; a
+; pending wrap is taken first (new row, scrolling if needed)
 _io_show:
+        ldx     wrap
+        beq     @now
+        pha
+        jsr     _io_put_nl
+        pla
+@now:
         ldy     pos
         sty     ptr1
         sty     ptr3
@@ -161,6 +178,7 @@ _io_put_nl:
         inc     pos+1
 :       lda     #0
         sta     col
+        sta     wrap
         lda     pos
         cmp     #<1000
         bne     @end
@@ -221,11 +239,16 @@ down:   bit     _io_brk_armed
         lda     #0              ; held since the last report
         tax
         rts
-hit:    ldx     #0
+; LSTX first, then the buffer: if the jiffy IRQ's key scan runs between
+; the two stores it already sees RUN/STOP as the last key and queues no
+; code 3, so the buffer emptied next stays free of this press. (In the
+; other order a scan in between could queue a code 3 after the buffer was
+; emptied, and the editor would see it.)
+hit:    lda     #STOPKEY
+        sta     LSTX
+        ldx     #0
         stx     _io_brk_armed
         stx     NDX             ; empty the keyboard buffer
-        lda     #STOPKEY
-        sta     LSTX
         lda     #1
         rts
 

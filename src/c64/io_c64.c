@@ -12,9 +12,11 @@
  * used up for io_break). Keys arrive in PETSCII: unshifted letters $41-$5A
  * are lower case, shifted $C1-$DA upper case; both are stored as ASCII,
  * except that e is stored as E ($45), because num_parse (num_c64.s) takes
- * the exponent letter only as $45 or $C5. A leading - is handled here
- * (num_parse would also take a sign, but --3 or -+3 must be bad input):
- * the rest is parsed and negated. Empty or malformed input returns 1.
+ * the exponent letter only as $45 or $C5. Leading and trailing spaces are
+ * skipped (as the host io_read_num skips white space). A leading - is
+ * handled here and the rest parsed and negated; a second sign after it
+ * (--3, -+3) is bad input, while a plain +3 is passed to num_parse, which
+ * takes it like the host's strtod. Empty or malformed input returns 1.
  * This file is compiled with the default cc65 PETSCII charmap, so
  * character values are written as numbers, never as 'x' literals.
  * Not reentrant. */
@@ -66,9 +68,16 @@ int io_read_num(num_t *r)
         io_brk_armed = 0;                           /* this press is used up */
         return 1;
     }
+    while (n && in[n - 1] == 0x20) --n;             /* trailing spaces */
     in[n] = 0;
-    if (*p == 0x2D) ++p;                            /* '-': negate below */
-    if (*p == 0x2B || *p == 0x2D || num_parse(p, r)) return 1;
-    if (p != in) num_neg(r, r);
+    while (*p == 0x20) ++p;                         /* leading spaces */
+    c = 0;
+    if (*p == 0x2D) {                               /* '-': negate below */
+        ++p;
+        c = 1;
+        if (*p == 0x2B || *p == 0x2D) return 1;     /* no second sign */
+    }
+    if (num_parse(p, r)) return 1;                  /* takes a leading '+' */
+    if (c) num_neg(r, r);
     return 0;
 }

@@ -117,6 +117,7 @@ c64-io: $(C64_BUILD)/io_check.prg
 	  --on feed5 'keybuf 1\x147\n' --on feed6 'keybuf -\n' \
 	  --on feed7 'keybuf 4\x03' --on feed10 'keybuf 1111111111111111111111111\n' \
 	  --on feed11 'keybuf 1e3\n' --on feed12 'keybuf -2.5E-2\n' \
+	  --on feed13 'keybuf +3\n' --on feed14 'keybuf \x20\x207\x20\n' --on feed15 'keybuf -+3\n' \
 	  --on feed8 'keybuf \x03' \
 	  --on feed9 'bank io' --on feed9 '> dc03 80' --on feed9 '> dc01 7f' --on feed9 'bank ram' \
 	  $(C64_BUILD)/io_check.prg PASS $(C64_IO_CYCLES) FAIL
