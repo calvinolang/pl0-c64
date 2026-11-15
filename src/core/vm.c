@@ -22,7 +22,16 @@
 
 #define CELL_AT(base, off) ((num_t *)((char *)(base) + (off)))
 
+/* On the C64 the stack (2,560 bytes) lives in HIBSS ($C000-$CBFF, see
+ * src/c64/pl0-c64.cfg and docs/architecture/memory-map.md): low RAM is
+ * full. It needs no clearing (every cell is written before it is read). */
+#ifdef __CC65__
+#pragma bss-name (push, "HIBSS")
+#endif
 static num_t stack[MAX_STACK];
+#ifdef __CC65__
+#pragma bss-name (pop)
+#endif
 static num_t *disp[MAX_NEST + 1];   /* frame base per declaration level */
 static char numbuf[16];
 #ifdef PL0_TEST_HOOKS

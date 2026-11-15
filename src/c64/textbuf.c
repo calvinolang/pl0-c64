@@ -85,6 +85,7 @@ void tb_right(TextBuf *t) {
     t->want = 0;
 }
 
+#ifndef TB_NO_LINE_SCANS
 /* Scans use tb_at per character: on cc65 that is smaller than hand-walked
  * segment pointers (measured; see the report). */
 
@@ -166,6 +167,7 @@ static void vmove(TextBuf *t, uint8_t down) {
 }
 void tb_up(TextBuf *t) { vmove(t, 0); }
 void tb_down(TextBuf *t) { vmove(t, 1); }
+#endif /* TB_NO_LINE_SCANS */
 
 const char *tb_text(TextBuf *t) {
     move_gap(t, t->len);
