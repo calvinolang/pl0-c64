@@ -13,11 +13,10 @@
  * (a second drawing) keeps the text-mode values. The background $D021 is
  * not used in bitmap mode and is left alone.
  *
- * gfx_line clips with the shared src/core/clip.c (identical to the host)
- * and hands the in-range endpoints to gfx_draw (gfx_c64.s), which runs the
- * Bresenham loop with the KERNAL banked out. Not reentrant. */
+ * gfx_line is in gfx_c64.s: it clips with the shared src/core/clip.c
+ * (identical to the host) and runs the Bresenham loop with the KERNAL
+ * banked out. Not reentrant. */
 #include <string.h>
-#include "core/clip.h"
 #include "platform/gfx.h"
 
 #define REG(a)  (*(volatile uint8_t *)(a))
@@ -25,11 +24,7 @@
 #define MATRIX  ((void *)0xCC00)
 #define NMI_VEC (*(uint16_t *)0xFFFA)   /* RAM vector, read only while the KERNAL is out */
 
-/* gfx_c64.s */
-extern int16_t gfx_x0, gfx_x1;          /* 0..319 */
-extern uint8_t gfx_y0, gfx_y1;          /* 0..199 */
-void gfx_draw(void);
-void gfx_nmi_rti(void);                 /* a lone RTI */
+void gfx_nmi_rti(void);                 /* gfx_c64.s: a lone RTI */
 
 static uint8_t is_open, s_dd00, s_d011, s_d016, s_d018, s_d020;
 
@@ -64,24 +59,4 @@ void gfx_close(void)
     REG(0xD018) = s_d018;
     REG(0xD020) = s_d020;
     is_open = 0;
-}
-
-static uint8_t inside(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
-{
-    return (uint16_t)x0 <= 319 && (uint16_t)x1 <= 319 &&
-           (uint16_t)y0 <= 199 && (uint16_t)y1 <= 199;
-}
-
-/* clip_line (32-bit arithmetic in cc65) costs about 3,000 cycles even for a
- * line that is entirely visible, and returns such a line unchanged, so it
- * is called only when an endpoint is outside. The second inside() is a
- * guard: whatever the clipper returns, nothing outside the 8000-byte bitmap
- * is ever written. */
-void gfx_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
-{
-    if (!inside(x0, y0, x1, y1) &&
-        (!clip_line(&x0, &y0, &x1, &y1) || !inside(x0, y0, x1, y1))) return;
-    gfx_x0 = x0; gfx_y0 = (uint8_t)y0;
-    gfx_x1 = x1; gfx_y1 = (uint8_t)y1;
-    gfx_draw();
 }
