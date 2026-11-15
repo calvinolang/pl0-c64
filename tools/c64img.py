@@ -30,23 +30,29 @@ def load(path):
     return im
 
 
-def check(im, path="capture"):
-    """Sanity checks of a capture: a uniform border (one colour all
-    around the 320x200 window) and something on the screen (at least two
-    colours inside it). Returns the number of colours."""
+def uniform_border(im):
+    """True if the border around the 320x200 window is one colour (a
+    frame in which the program switched screens shows two)."""
     px = im.load()
-    bx, by = BX, BY
     border = set()
     for x in range(W):
-        for y in list(range(by)) + list(range(by + 200, H)):
+        for y in list(range(BY)) + list(range(BY + 200, H)):
             border.add(px[x, y])
-    for y in range(by, by + 200):
-        for x in list(range(bx)) + list(range(bx + 320, W)):
+    for y in range(BY, BY + 200):
+        for x in list(range(BX)) + list(range(BX + 320, W)):
             border.add(px[x, y])
-    if len(border) != 1:
-        raise ValueError(f"{path}: the border is not one colour ({len(border)} colours)")
-    inner = im.crop((bx, by, bx + 320, by + 200)).getcolors(256)
-    if inner is None or len(inner) < 2:
+    return len(border) == 1
+
+
+def check(im, path="capture", blank_ok=False):
+    """Sanity checks of a capture: a uniform border (one colour all
+    around the 320x200 window) and something on the screen (at least two
+    colours inside it, unless blank_ok: the cleared screen a demo passes
+    through). Returns the number of colours."""
+    if not uniform_border(im):
+        raise ValueError(f"{path}: the border is not one colour")
+    inner = im.crop((BX, BY, BX + 320, BY + 200)).getcolors(256)
+    if not blank_ok and (inner is None or len(inner) < 2):
         raise ValueError(f"{path}: the screen is blank")
     return len(im.getcolors(256))
 
