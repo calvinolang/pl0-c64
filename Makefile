@@ -15,6 +15,8 @@ HDRS     := $(wildcard src/*/*.h tests/*.h)
 test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
 	@python3 tools/test_check_error_docs.py
+	@python3 tools/test_check_doc_code.py
+	@python3 tools/test_check_md_links.py
 	@python3 tools/mksite.py --check
 	@python3 tools/check_site.py --source >/dev/null || python3 tools/check_site.py --source
 	@python3 tools/test_check_site.py
