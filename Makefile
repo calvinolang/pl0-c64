@@ -5,7 +5,7 @@ BUILD   := build
 
 CORE_SRC := $(wildcard src/core/*.c)
 HOST_SRC := $(filter-out src/host/pl0host.c,$(wildcard src/host/*.c))
-LIB_SRC  := $(CORE_SRC) $(HOST_SRC)
+LIB_SRC  := $(CORE_SRC) $(HOST_SRC) src/c64/textbuf.c
 TEST_SRC := $(wildcard tests/test_*.c)
 TEST_BIN := $(patsubst tests/%.c,$(BUILD)/%,$(TEST_SRC))
 HDRS     := $(wildcard src/*/*.h tests/*.h)
