@@ -7,7 +7,7 @@ what the gates cover, how long they take, and how to install the tools.
 
 | Command | What it runs | Time (measured) |
 |---|---|---|
-| `make test` | host only: unit tests, example goldens, tool self-tests | about 15 s after `make clean`, 4 s with the build done |
+| `make test` | host only: unit tests, example goldens, tool self-tests, documentation checks | about 20 s after `make clean`, 10 s with the build done (19 s and 10 s in a fresh clone, 2026-11-15, Task 18) |
 | `make smoke` | the on-target suite in headless VICE (table below), one target after the other with a time limit each, then a summary table (case, result, seconds); `tests/smoke.sh` | about 4.5 minutes |
 | `make check` | the standard gate: `make test`, then `make smoke` | about 4.5 minutes (273 s after `make clean`, 250 s with the build done; 2026-11-15) |
 | `make check-full` | `make check`, then `c64-examples` and `c64-app-examples` (every example on the C64 twice) | about 8 minutes (465 s: check 250 s, c64-examples 81 s, c64-app-examples 134 s) |
