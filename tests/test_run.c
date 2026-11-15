@@ -415,6 +415,21 @@ static void runaway_recursion(void) {
     /* the VM is usable again after an overflow */
     CHECK_EQ_STR(run("procedure p(a); !a; call p(4)."), "4");
 }
+static void instr_count(void) {
+    unsigned long a, b;
+    /* the loop body "LOD LIT LT JPC LOD LIT ADD STO JMP" is 9 instructions */
+    CHECK_EQ_STR(run("var i; while i < 10 do i := i + 1."), "");
+    a = vm_instr_count();
+    CHECK_EQ_STR(run("var i; while i < 11 do i := i + 1."), "");
+    b = vm_instr_count();
+    CHECK_EQ_INT((int)(b - a), 9);
+    CHECK_EQ_INT((int)vm_fn_count(), 0);
+    CHECK_EQ_STR(run("var i; while i < 3 do i := i + abs(int(1.5))."), "");
+    CHECK_EQ_INT((int)vm_fn_count(), 6);
+    /* reset per run; even the empty program executes INT and RET */
+    CHECK_EQ_STR(run("."), "");
+    CHECK(vm_instr_count() >= 2 && vm_instr_count() < 5);
+}
 static const char *sum_program(long n) {
     sprintf(big, "var r;\n"
                  "procedure sum(n);\n"
@@ -600,6 +615,7 @@ int main(void) {
     nesting_too_deep();
     nesting_counters_per_body();
     runaway_recursion();
+    instr_count();
     recursion_depth();
     stopped_in_procedure();
     runtime_error_in_procedure();

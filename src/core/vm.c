@@ -27,6 +27,8 @@ static num_t *disp[MAX_NEST + 1];   /* frame base per declaration level */
 static char numbuf[16];
 #ifdef PL0_TEST_HOOKS
 static num_t *high;                 /* highest sp seen (test hook) */
+static unsigned long icount;        /* instructions executed (test hook) */
+static unsigned long fncount;       /* FN instructions executed (test hook) */
 #endif
 
 /* A header cell must be able to hold a pointer (on the C64: 5 >= 2). */
@@ -68,10 +70,13 @@ int pl0_run(const Program *p, PL0Error *err)
     turtle_reset();
 #ifdef PL0_TEST_HOOKS
     high = sp;
+    icount = 0;
+    fncount = 0;
 #endif
     for (;;) {
 #ifdef PL0_TEST_HOOKS
         if (sp > high) high = sp;
+        ++icount;
 #endif
         switch (ip->op) {
         case OP_LIT:
@@ -181,6 +186,9 @@ int pl0_run(const Program *p, PL0Error *err)
             }
             break;
         case OP_FN:
+#ifdef PL0_TEST_HOOKS
+            ++fncount;
+#endif
             c = num_fn(ip->lvl, sp - 1, sp - 1);
             if (c) return fail(err, c == 1 ? E_DOMAIN : E_OVERFLOW, ip->arg);
             break;
@@ -226,4 +234,6 @@ int pl0_run(const Program *p, PL0Error *err)
 
 #ifdef PL0_TEST_HOOKS
 unsigned vm_stack_high_water(void) { return (unsigned)(high - stack); }
+unsigned long vm_instr_count(void) { return icount; }
+unsigned long vm_fn_count(void) { return fncount; }
 #endif

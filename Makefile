@@ -12,7 +12,7 @@ HDRS     := $(wildcard src/*/*.h tests/*.h)
 
 .PHONY: test host examples c64 clean
 
-test: $(TEST_BIN)
+test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
 	@fail=0; n=0; \
 	for t in $(TEST_BIN); do \
@@ -23,6 +23,7 @@ test: $(TEST_BIN)
 	done; \
 	if [ $$fail -ne 0 ]; then echo "$$fail of $$n test file(s) FAILED"; exit 1; fi; \
 	echo "$$n test file(s), all checks passed"
+	@sh tests/run_examples.sh
 
 $(BUILD)/test_%: tests/test_%.c $(LIB_SRC) $(HDRS)
 	@mkdir -p $(BUILD)
@@ -31,7 +32,7 @@ $(BUILD)/test_%: tests/test_%.c $(LIB_SRC) $(HDRS)
 host:
 	@test -f src/host/pl0host.c || { echo "error: src/host/pl0host.c does not exist yet"; exit 1; }
 	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -o $(BUILD)/pl0host src/host/pl0host.c $(LIB_SRC) -lm
+	$(CC) $(CFLAGS) -DPL0_TEST_HOOKS -o $(BUILD)/pl0host src/host/pl0host.c $(LIB_SRC) -lm
 
 examples: host
 	@sh tests/run_examples.sh
