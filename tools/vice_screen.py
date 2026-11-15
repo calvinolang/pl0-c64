@@ -30,6 +30,10 @@ Options (all may be repeated or combined):
 EXPECTED counts only once every --on has fired (a final line that also
 showed earlier, before the last keys, does not end the run early);
 FAILTEXT counts at any time.
+  --as-user          start the program as a user would: VICE's default
+                     autostart settings (a .prg goes through a disk
+                     image and the drive, AutostartPrgMode 2) instead of
+                     injecting it into RAM (-autostartprgmode 1)
   --vice ARG         one more x64sc command line argument (repeatable), e.g.
                      --vice -8 --vice disk.d64 to attach a disk image (the
                      harness detaches it before quitting, which writes
@@ -40,10 +44,16 @@ FAILTEXT counts at any time.
                      64 KB of RAM (`bank ram`) to OUTDIR/snapN.bin, then
                      writes n to $02A8 and resumes; OUTDIR/stepN.png is a
                      VICE screenshot taken at the same moment.
+Checkpoints: when the CPU stops at a checkpoint (a `break` or `watch`
+sent with --on, or from a -moncommands file given with --vice), the
+harness reads VICE's stopwatch (`sw`: CPU cycles since power-on or since
+the last `sw reset`) while the CPU is still stopped there, appends the
+number to OUTDIR/stops.txt (one line per stop) and resumes.
 The last decoded screen is printed and written to OUTDIR/screen.txt, the
 monitor session to OUTDIR/monitor.log, VICE's own output to OUTDIR/vice.log.
 """
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -59,7 +69,7 @@ STEP, ACK = 0x02A7, 0x02A8        # --snap handshake bytes (free KERNAL page 2 R
 
 
 def parse_args(argv):
-    on, snap, out, pos, extra = [], False, None, [], []
+    on, snap, out, pos, extra, user = [], False, None, [], [], False
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -71,13 +81,15 @@ def parse_args(argv):
             extra.append(argv[i + 1]); i += 2
         elif a == "--snap":
             snap = True; i += 1
+        elif a == "--as-user":
+            user = True; i += 1
         else:
             pos.append(a); i += 1
     if out is None or len(pos) not in (3, 4):
         sys.exit(__doc__)
     if not pos[1].strip() or (len(pos) == 4 and not pos[3].strip()):
         sys.exit("vice_screen: EXPECTED and FAILTEXT must not be empty\n" + __doc__)
-    return on, snap, out, pos, extra
+    return on, snap, out, pos, extra, user
 
 
 def match(screen, expected, failtext):
@@ -92,7 +104,7 @@ def match(screen, expected, failtext):
 
 
 def main():
-    on, snap, outdir, pos, extra = parse_args(sys.argv[1:])
+    on, snap, outdir, pos, extra, user = parse_args(sys.argv[1:])
     prg, expected, cycles = pos[:3]
     failtext = pos[3] if len(pos) == 4 else None
     os.makedirs(outdir, exist_ok=True)
@@ -103,7 +115,7 @@ def main():
     args = ["x64sc", "-console", "-default", "-config", os.path.join(outdir, "vicerc"),
             "-warp", "-sounddev", "dummy", "-limitcycles", str(cycles),
             "-remotemonitor", "-remotemonitoraddress", f"ip4://127.0.0.1:{port}",
-            "-autostartprgmode", "1"] + extra + ["-autostart", os.path.abspath(prg)]
+            ] + ([] if user else ["-autostartprgmode", "1"]) + extra + ["-autostart", os.path.abspath(prg)]
     vlog = open(os.path.join(outdir, "vice.log"), "w")
     p = subprocess.Popen(args, stdout=vlog, stderr=subprocess.STDOUT)
     log = open(os.path.join(outdir, "monitor.log"), "w")
@@ -136,6 +148,9 @@ def main():
             if marker in out and lines and b"(C:$" in lines[-1]:
                 break
         log.write(f">>> {cmd}\n{out.decode('latin-1')}\n")
+        # a checkpoint hit (`#1 (Stop on  exec 4fe2)`), not the reply to
+        # setting one (`BREAK: 1  C:$4fe2  (Stop on exec)`)
+        stopped[0] += len(re.findall(rb"#\d+ \(Stop on", out))
         return out
 
     def save(path, start, end):
@@ -143,6 +158,8 @@ def main():
         command(f'bsave "{path}" 0 {start:04x} {end:04x}', marker=b"Saving file")
         return open(path, "rb").read() if os.path.exists(path) else b""
 
+    stopped = [0]                # checkpoint stops seen in monitor replies
+    stops = open(os.path.join(outdir, "stops.txt"), "w")
     screen = ""; rc = 2; t0 = time.time(); fired = 0; acked = 0
     try:
         command("bank ram")
@@ -166,6 +183,13 @@ def main():
                     if cmd == "pause":
                         break
                     command(cmd)
+            while stopped[0]:
+                # the CPU stopped at a checkpoint (`break`/`watch` sent
+                # with --on) since the last command: it is still
+                # stopped there, so the stopwatch reads the exact cycle
+                stopped[0] -= 1
+                r = re.search(rb"Stopwatch:\s+(\d+)", command("sw", marker=b"Stopwatch"))
+                stops.write("%s\n" % (int(r.group(1)) if r else "?")); stops.flush()
             command("x", wait_prompt=False)
             if len(data) == 1000:
                 m = match(screen, expected if fired == len(on) else None, failtext)
@@ -175,20 +199,33 @@ def main():
             print(f"vice_screen: {reason} before a screen line equal to {expected!r}")
     except OSError as e:
         print(f"vice_screen: VICE stopped ({e}); cycle limit reached?")
+    # VICE 3.7.1 ignores a `quit` that it reads in the monitor right after
+    # `detach 8` (measured: the process ran on until killed 20 s later,
+    # on every run with a disk), while a `quit` sent with the emulation
+    # running always worked. So: resume (`x`), then `quit`, and send it
+    # again each second until VICE exits (at most 10 times, then kill).
+    disk = "-8" in extra or prg.lower().endswith(".d64")
     try:
-        if "-8" in extra and p.poll() is None:
+        if disk and p.poll() is None:
             # with true drive emulation VICE keeps the drive's last
-            # written track in memory: `quit` would lose it, `detach`
-            # writes it to the image file
+            # written track in memory: `detach` writes it to the image
+            # file (and must come before the end)
             command("detach 8")
-        c.sendall(b"quit\n")
+            c.sendall(b"x\n")
+        for _ in range(10):
+            if p.poll() is not None:
+                break
+            c.sendall(b"quit\n")
+            try:
+                p.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                pass
     except OSError:
         pass
-    c.close(); log.close()
-    try:
-        p.wait(timeout=20)
-    except subprocess.TimeoutExpired:
+    if p.poll() is None:
         p.kill()
+    p.wait()
+    c.close(); log.close(); stops.close()
     open(os.path.join(outdir, "screen.txt"), "w").write(screen)
     return rc
 

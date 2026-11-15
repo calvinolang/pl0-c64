@@ -33,6 +33,11 @@ check(exits(["--out", "d", "p.prg", "", "1000"]), "empty EXPECTED accepted")
 check(exits(["--out", "d", "p.prg", "  ", "1000"]), "blank EXPECTED accepted")
 check(exits(["--out", "d", "p.prg", "PASS", "1000", ""]), "empty FAILTEXT accepted")
 check(not exits(["--out", "d", "p.prg", "PASS", "1000", "FAIL"]), "valid arguments rejected")
+# --as-user: a flag, not a positional argument; off by default
+check(parse_args(["--as-user", "--out", "d", "p.prg", "PASS", "1000"])[5] is True, "--as-user not set")
+check(parse_args(["--out", "d", "p.prg", "PASS", "1000"])[5] is False, "--as-user set by default")
+check(parse_args(["--out", "d", "--as-user", "p.prg", "PASS", "1000"])[3] == ["p.prg", "PASS", "1000"],
+      "--as-user taken as a positional argument")
 # the same through the command line: exits nonzero before starting VICE
 r = subprocess.run([sys.executable, os.path.join(here, "vice_screen.py"), "--out", "d", "p.prg", "", "1000"],
                    capture_output=True)

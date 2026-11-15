@@ -13,18 +13,22 @@
 #                     VICE would type them: --on feed1 'keybuf 12.5\n');
 #                     repeatable, fired in order (see tools/vice_screen.py)
 #   --vice ARG        pass ARG to x64sc (repeatable: --vice -8 --vice d.d64)
+#   --as-user         VICE's default autostart (a .prg through a disk image
+#                     and the drive) instead of injecting the .prg into RAM
 #   --snap            RAM snapshot handshake ($02A7/$02A8): OUTDIR/snapN.bin
 #                     holds all 64 KB of RAM at step N (tests/c64/gfx_check.c)
 #   --check CMD       after the screen check passed, run `CMD OUTDIR` (word
 #                     split) and fail if it fails (e.g. tools/check_bitmap.py)
+#   --work NAME       work directory build/vice/NAME instead of the prg name
 # Exit: 0 expected line found (and the check passed); 1 otherwise (fail
 # text, cycle limit, VICE error, timeout or failed check); the screen is
 # printed on failure. Work files go to build/vice/<prg name>/.
-check=
+check=; work=
 n=$#; i=0
-while [ $i -lt $n ]; do            # pull --check out, keep everything else
+while [ $i -lt $n ]; do            # pull --check/--work out, keep everything else
   a=$1; shift; i=$((i + 1))
   if [ "$a" = --check ]; then check=$1; shift; i=$((i + 1)); continue; fi
+  if [ "$a" = --work ]; then work=$1; shift; i=$((i + 1)); continue; fi
   set -- "$@" "$a"
 done
 prg=; expected=; skip=0; npos=0
@@ -33,16 +37,16 @@ for a in "$@"; do                  # the first positional argument is the prg
   case $a in
     --on) skip=2 ;;
     --vice) skip=1 ;;
-    --snap) ;;
+    --snap|--as-user) ;;
     *) npos=$((npos + 1))
        [ $npos -eq 1 ] && prg=$a
        [ $npos -eq 2 ] && expected=$a ;;
   esac
 done
-[ $npos -ge 3 ] || { echo "usage: $0 [--on T C]... [--snap] [--check CMD] <prg> <expected-line> <cycle-limit> [fail-text]"; exit 2; }
+[ $npos -ge 3 ] || { echo "usage: $0 [--on T C]... [--snap] [--as-user] [--check CMD] [--work NAME] <prg> <expected-line> <cycle-limit> [fail-text]"; exit 2; }
 [ -f "$prg" ] || { echo "vice_run: $prg not found"; exit 1; }
 root=$(cd "$(dirname "$0")/.." && pwd)
-out=$root/build/vice/$(basename "$prg" .prg)
+out=$root/build/vice/${work:-$(basename "$prg" .prg)}
 rm -rf "$out"; mkdir -p "$out"
 timeout 360 python3 "$root/tools/vice_screen.py" --out "$out" "$@"
 rc=$?
