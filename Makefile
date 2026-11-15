@@ -41,25 +41,31 @@ c64:
 	@echo "c64: the full C64 program is built from Task 14 on; see c64-tests / c64-num"
 
 # ---- C64 (cc65): number layer on the BASIC ROM, checked in headless VICE.
-# Objects go to build/c64 (cl65 -c -o), never next to the sources.
+# C is compiled in two steps (cc65 -> build/c64/*.s, ca65 -> *.o), never with
+# `cl65 -c` in place: cl65 writes its intermediate .s next to the source,
+# which would overwrite src/c64/num_c64.s and litter the tree.
+CC65        ?= cc65
+CA65        ?= ca65
 CL65        ?= cl65
 C64_BUILD   := $(BUILD)/c64
 C64_CFG     := src/c64/pl0-c64.cfg
-C64_CFLAGS  := -t c64 -O -C $(C64_CFG) -Isrc -W +error
+C64_CCFLAGS := -t c64 -O -Isrc -W +error
 NUM_C64_OBJ := $(C64_BUILD)/num_c64.o $(C64_BUILD)/num_c64_s.o
 C64_NUM_CYCLES ?= 100000000
 
 $(C64_BUILD)/num_c64.o: src/c64/num_c64.c src/platform/num.h
 	@mkdir -p $(C64_BUILD)
-	$(CL65) $(C64_CFLAGS) -c -o $@ $<
+	$(CC65) $(C64_CCFLAGS) -o $(C64_BUILD)/num_c64.c.s $<
+	$(CA65) -t c64 -o $@ $(C64_BUILD)/num_c64.c.s
 
 $(C64_BUILD)/num_c64_s.o: src/c64/num_c64.s
 	@mkdir -p $(C64_BUILD)
-	$(CL65) -t c64 -c -o $@ $<
+	$(CA65) -t c64 -o $@ $<
 
-$(C64_BUILD)/num_check.o: tests/c64/num_check.c src/platform/num.h
+$(C64_BUILD)/num_check.o: tests/c64/num_check.c tests/c64/num_vectors.h src/platform/num.h
 	@mkdir -p $(C64_BUILD)
-	$(CL65) $(C64_CFLAGS) -c -o $@ $<
+	$(CC65) $(C64_CCFLAGS) -o $(C64_BUILD)/num_check.c.s $<
+	$(CA65) -t c64 -o $@ $(C64_BUILD)/num_check.c.s
 
 $(C64_BUILD)/num_check.prg: $(C64_BUILD)/num_check.o $(NUM_C64_OBJ) $(C64_CFG)
 	$(CL65) -t c64 -C $(C64_CFG) -m $(C64_BUILD)/num_check.map -Ln $(C64_BUILD)/num_check.lbl \
