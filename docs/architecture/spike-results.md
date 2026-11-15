@@ -500,3 +500,32 @@ tuning in spec 10b(5) will matter.
   `b[0] == 0`.
 - The `fp_*` shims must stay below `$A000`, and so must every operand
   pointer (any `num_t` and any string given to `FIN`).
+
+### Added by Task 12 (C64 graphics and I/O layers)
+
+- **cc65 2.18 `-O` miscompiles a conditional expression** in an assignment
+  when the false branch is a stack local: `buf[n++] = c == 0x65 ? 0x45 : c;`
+  (with `c`, `n` locals and a pointer parameter) loads the false branch from
+  the wrong stack offset (the parameter's). Without `-O` the code is right.
+  Found in `io_read_num`; rewritten as `if (c == 0x65) c = 0x45;`. Prefer
+  `if` statements to `?:` on locals in C64 code, and test on the target.
+- **Character codes differ by module.** The language (source text, string
+  literals, `io_put_str`) is ASCII. cc65 C literals are PETSCII ('a' = $41,
+  'E' = $C5). `num_format` writes its exponent letter as $C5, and
+  `num_parse` takes the exponent letter as $45 or $C5 only (ASCII 'e' = $65
+  is rejected). `io_put_str` therefore shows ASCII and also PETSCII upper
+  case $C1-$DA as A-Z, and `io_read_num` stores a typed e as $45. Task 14
+  must choose how the core (keywords in `lexer.c`, messages in `errors.c`)
+  is compiled for the C64: with ASCII literals (`#include <ascii_charmap.h>`
+  or `#pragma charmap`) to match an ASCII source buffer, or not.
+- Text output (`src/c64/io_c64.s`) uses its own cursor; the KERNAL and
+  cc65 `conio` cursors are not updated. Output is in the upper/lower case
+  character set (`$D018 = $17`), wraps eagerly at column 40 and scrolls
+  screen and colour RAM.
+- `io_break` reads the keyboard matrix itself (`$DC00 = $7F`, `$DC01`
+  bit 7) and the KERNAL buffer for code 3: 35 cycles per call when idle,
+  one report per press, keyboard buffer emptied on a report. The KERNAL
+  key scan ends with `$DC00 = $7F` (`$EB42`), so writing it is harmless.
+- `gfx_line` keeps interrupts off for the whole line (KERNAL banked out):
+  up to about 31 ms for a 320-pixel line, so a jiffy IRQ may be delayed
+  (not lost). `gfx_open` points the RAM NMI vector `$FFFA` at an `RTI`.
