@@ -24,7 +24,11 @@
 ; Reading the bitmap needs the KERNAL ROM out: the whole line runs with
 ; interrupts off and $01 = %xx101 (RAM at $A000-$BFFF and $E000-$FFFF, I/O
 ; in), restored afterwards. A 320-pixel line keeps interrupts off for about
-; 20 ms (one jiffy IRQ is delayed, not lost). An NMI (RESTORE) in that
+; 31 ms (measured). The CIA latches only one pending timer interrupt, so the
+; jiffy IRQs falling due in that window collapse into one, served late: the
+; jiffy clock TI falls behind by 1-2 ticks per long line and the matching
+; KERNAL key scans are skipped. Later code must not rely on TI (or on key
+; scans) across gfx_line calls. An NMI (RESTORE) in that
 ; window vectors through RAM $FFFA, which gfx_open points at gfx_nmi_rti.
 
         .export _gfx_line, _gfx_nmi_rti
