@@ -22,11 +22,20 @@ monitor (`bsave "OUTDIR/NAME" 0 START END` at a trigger):
     pbm NAME FILE        the bitmap ($E000) in the 64 KB dump NAME against
                          the host rendering FILE (pl0host --pbm), with the
                          checks of tools/check_c64_run.py
+    output NAME FILE     the program output in the screen dump NAME (the
+                         rows above the last `-- PRESS ANY KEY --` row)
+                         matches the golden FILE with
+                         tools/compare_output.py (numbers within 1e-6
+                         relative); if the output fills the screen and
+                         FILE has more lines, only its last lines are
+                         compared, and the check says so
 Exit 0 if all hold, else 1 with one message per failure.
 """
 import os
 import struct
+import subprocess
 import sys
+import tempfile
 
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +46,36 @@ from pbm2png import read_p1  # noqa: E402
 from screen2txt import decode  # noqa: E402
 
 LBL = os.path.join(HERE, "..", "build", "c64", "pl0.lbl")
+KEY = "-- PRESS ANY KEY --"
+
+
+def check_output(scr, golden):
+    """The output rows of a run screen against a golden file: a list of
+    error messages (empty if it matches)."""
+    rows = [r.rstrip() for r in decode(scr).splitlines()]
+    if KEY not in rows:
+        return ["no %r row on the screen" % KEY]
+    out = rows[:len(rows) - 1 - rows[::-1].index(KEY)]
+    while out and not out[-1]:
+        out.pop()
+    want = open(golden).read().rstrip("\n").split("\n")
+    if len(want) > len(out) and len(out) == len(rows) - 1:
+        # the output filled the screen above the key row, so it may have
+        # scrolled: the screen holds its tail (the example rules keep
+        # every example within 22 rows, so this is for other programs)
+        print("check_app: output longer than the screen: compared the last %d of %d lines"
+              % (len(out), len(want)))
+        want = want[len(want) - len(out):]
+    with tempfile.TemporaryDirectory() as tmp:
+        a, b = os.path.join(tmp, "want"), os.path.join(tmp, "got")
+        open(a, "w").write("\n".join(want) + "\n")
+        open(b, "w").write("\n".join(out) + "\n")
+        r = subprocess.run([sys.executable, os.path.join(HERE, "compare_output.py"), a, b],
+                           capture_output=True, text=True)
+    if r.returncode != 0:
+        return ["output differs from %s: %s" % (golden, r.stdout.strip()),
+                "output was:\n" + "\n".join(out)]
+    return []
 
 
 def label(name):
@@ -123,6 +162,12 @@ def main(argv):
             errs, summary = compare_drawing(bitmap(mem), host)
             print("check_app: " + summary)
             errors += errs
+        elif kind == "output":
+            scr = read(outdir, args[0])
+            if scr is None or len(scr) != 1000:
+                errors.append("no screen dump %s" % args[0])
+            else:
+                errors += check_output(scr, args[1])
         else:
             errors.append("bad expectation line: %r" % line)
     flush()

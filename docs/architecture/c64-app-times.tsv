@@ -1,0 +1,16 @@
+# example	C64 seconds from F1 to the end of the run, through the program (tests/c64_app_examples.sh --record)
+factorial	3.28
+gcd	2.22
+koch	26.17
+lissajous	14.51
+newton	1.45
+pi	24.39
+polygon	1.98
+primes	13.73
+rose	22.10
+sierpinski	10.49
+sine	9.34
+spiral	5.44
+square	1.06
+star	2.37
+tree	22.10

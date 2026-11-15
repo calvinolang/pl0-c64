@@ -20,21 +20,26 @@ VICE: `pl0_compile` plus `pl0_run` (CPU cycles from the CIA2 timers /
 985248), recorded by
 `tests/c64_examples.sh --record` in `c64-times.tsv` next to this file
 (`make c64-examples` runs them; the spec asks for about 30 s or less).
+"C64 app run (s)" is the same time through the final program, as a user
+gets it: F3, the example, F1, until the program ends (VICE's CPU cycle
+stopwatch from the F1 key to the end of `pl0_run`, / 985248), recorded by
+`tests/c64_app_examples.sh --record` in `c64-app-times.tsv`
+(`make c64-app-examples` fails if any example takes more than 30 s).
 
-| Example | Kind | Source bytes | P-code instructions | Functions | Turn trig | Lines | Extent (x; y) | C64 s |
-|---------|------|-------------:|--------------------:|----------:|----------:|------:|---------------|------:|
-| FACTORIAL | text | 471 | 1,761 | 0 | 0 | - | - | 3.27 |
-| GCD | text | 522 | 571 | 20 | 0 | - | - | 2.21 |
-| KOCH | drawing | 700 | 5,263 | 0 | 386 | 192 | 79..241; 5..192 | 26.15 |
-| LISSAJOUS | drawing | 388 | 3,608 | 240 | 0 | 120 | 10..310; 9..189 | 14.49 |
-| NEWTON | text | 470 | 201 | 1 | 0 | - | - | 1.44 |
-| PI | text | 889 | 15,960 | 1 | 0 | - | - | 24.36 |
-| POLYGON | drawing | 455 | 145 | 2 | 16 | 7 | 72..248; 9..180 | 1.96 |
-| PRIMES | text | 738 | 9,011 | 252 | 0 | - | - | 13.73 |
-| ROSE | drawing | 438 | 4,939 | 435 | 0 | 144 | 65..255; 4..194 | 22.07 |
-| SIERPINSKI | drawing | 616 | 4,484 | 0 | 0 | 243 | 52..268; 6..193 | 10.47 |
-| SINE | drawing | 828 | 2,538 | 97 | 0 | 104 | 10..310; 7..191 | 9.32 |
-| SPIRAL | drawing | 368 | 554 | 0 | 84 | 42 | 70..252; 8..191 | 5.42 |
-| SQUARE | drawing | 379 | 67 | 0 | 8 | 4 | 80..240; 19..179 | 1.04 |
-| STAR | drawing | 513 | 185 | 1 | 20 | 9 | 66..254; 4..188 | 2.35 |
-| TREE | drawing | 555 | 3,175 | 0 | 378 | 127 | 46..274; 9..194 | 22.07 |
+| Example | Kind | Source bytes | P-code instructions | Functions | Turn trig | Lines | Extent (x; y) | C64 s | C64 app run (s) |
+|---------|------|-------------:|--------------------:|----------:|----------:|------:|---------------|------:|----------------:|
+| FACTORIAL | text | 471 | 1,761 | 0 | 0 | - | - | 3.27 | 3.28 |
+| GCD | text | 522 | 571 | 20 | 0 | - | - | 2.21 | 2.22 |
+| KOCH | drawing | 700 | 5,263 | 0 | 386 | 192 | 79..241; 5..192 | 26.15 | 26.17 |
+| LISSAJOUS | drawing | 388 | 3,608 | 240 | 0 | 120 | 10..310; 9..189 | 14.49 | 14.51 |
+| NEWTON | text | 470 | 201 | 1 | 0 | - | - | 1.44 | 1.45 |
+| PI | text | 889 | 15,960 | 1 | 0 | - | - | 24.36 | 24.39 |
+| POLYGON | drawing | 455 | 145 | 2 | 16 | 7 | 72..248; 9..180 | 1.96 | 1.98 |
+| PRIMES | text | 738 | 9,011 | 252 | 0 | - | - | 13.73 | 13.73 |
+| ROSE | drawing | 438 | 4,939 | 435 | 0 | 144 | 65..255; 4..194 | 22.07 | 22.10 |
+| SIERPINSKI | drawing | 616 | 4,484 | 0 | 0 | 243 | 52..268; 6..193 | 10.47 | 10.49 |
+| SINE | drawing | 828 | 2,538 | 97 | 0 | 104 | 10..310; 7..191 | 9.32 | 9.34 |
+| SPIRAL | drawing | 368 | 554 | 0 | 84 | 42 | 70..252; 8..191 | 5.42 | 5.44 |
+| SQUARE | drawing | 379 | 67 | 0 | 8 | 4 | 80..240; 19..179 | 1.04 | 1.06 |
+| STAR | drawing | 513 | 185 | 1 | 20 | 9 | 66..254; 4..188 | 2.35 | 2.37 |
+| TREE | drawing | 555 | 3,175 | 0 | 378 | 127 | 46..274; 9..194 | 22.07 | 22.10 |

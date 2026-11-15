@@ -115,9 +115,14 @@ VICE: `pl0_compile` plus `pl0_run` (CPU cycles from the CIA2 timers /
 985248), recorded by
 `tests/c64_examples.sh --record` in `c64-times.tsv` next to this file
 (`make c64-examples` runs them; the spec asks for about 30 s or less).
+"C64 app run (s)" is the same time through the final program, as a user
+gets it: F3, the example, F1, until the program ends (VICE's CPU cycle
+stopwatch from the F1 key to the end of `pl0_run`, / 985248), recorded by
+`tests/c64_app_examples.sh --record` in `c64-app-times.tsv`
+(`make c64-app-examples` fails if any example takes more than 30 s).
 
-| Example | Kind | Source bytes | P-code instructions | Functions | Turn trig | Lines | Extent (x; y) | C64 s |
-|---------|------|-------------:|--------------------:|----------:|----------:|------:|---------------|------:|
+| Example | Kind | Source bytes | P-code instructions | Functions | Turn trig | Lines | Extent (x; y) | C64 s | C64 app run (s) |
+|---------|------|-------------:|--------------------:|----------:|----------:|------:|---------------|------:|----------------:|
 """
 
 
@@ -128,21 +133,25 @@ def budget(mode, rows_path, doc_path):
             if l.strip():
                 rows.append(l.split())
     rows.sort()
-    times = {}
-    tpath = os.path.join(os.path.dirname(doc_path), "c64-times.tsv")
-    if os.path.exists(tpath):
-        with open(tpath) as f:
-            for l in f:
-                p = l.split()
-                if len(p) == 2 and not l.startswith("#"):
-                    times[p[0]] = p[1]
+    def read_times(fname):
+        times = {}
+        tpath = os.path.join(os.path.dirname(doc_path), fname)
+        if os.path.exists(tpath):
+            with open(tpath) as f:
+                for l in f:
+                    p = l.split()
+                    if len(p) == 2 and not l.startswith("#"):
+                        times[p[0]] = p[1]
+        return times
+    times = read_times("c64-times.tsv")
+    app_times = read_times("c64-app-times.tsv")
     text = DOC_HEAD.format(budget=INSTR_BUDGET)
     for name, kind, nbytes, instr, fns, trig, nlines, x0, x1, y0, y1 in rows:
         ext = "%s..%s; %s..%s" % (x0, x1, y0, y1) if kind == "drawing" else "-"
         lines = nlines if kind == "drawing" else "-"
-        text += "| %s | %s | %s | %s | %s | %s | %s | %s | %s |\n" % (
+        text += "| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n" % (
             name.upper(), kind, nbytes, "{:,}".format(int(instr)), fns, trig, lines, ext,
-            times.get(name, "?"))
+            times.get(name, "?"), app_times.get(name, "?"))
     if mode == "write":
         with open(doc_path, "w") as f:
             f.write(text)
