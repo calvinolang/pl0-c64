@@ -10,7 +10,7 @@ TEST_SRC := $(wildcard tests/test_*.c)
 TEST_BIN := $(patsubst tests/%.c,$(BUILD)/%,$(TEST_SRC))
 HDRS     := $(wildcard src/*/*.h tests/*.h)
 
-.PHONY: test host examples c64 c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples clean
+.PHONY: test host examples c64 c64-editor c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples clean
 
 test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
@@ -39,8 +39,7 @@ host:
 examples: host
 	@sh tests/run_examples.sh
 
-c64:
-	@echo "c64: the full C64 program is built from Task 14 on; see c64-tests / c64-num"
+c64: $(BUILD)/pl0.prg
 
 # ---- C64 (cc65): number layer on the BASIC ROM, checked in headless VICE.
 # C is compiled in two steps (cc65 -> build/c64/*.s, ca65 -> *.o), never with
@@ -186,6 +185,37 @@ c64-example: host
 	sh tests/vice_run.sh $(if $(EX_DRAWING),--snap) \
 	  --check "python3 tools/check_c64_run.py --name $(EX) $(if $(EX_DRAWING),--pbm $(C64_BUILD)/ex_$(EX).pbm,--text examples/$(EX).expected)$(if $(TSV), --tsv $(TSV))" \
 	  $(C64_BUILD)/ex_$(EX).prg DONE $(C64_EX_CYCLES) "ERROR line"
+
+# ---- the program (Task 14 on): editor + core + C64 layers. build/pl0.prg
+# is a copy of build/c64/pl0.prg (map and labels: build/c64/pl0.map, .lbl).
+# main.c gets the starter text (examples/square.pl0) from a generated
+# header; pl0_tiny.prg is the same program with a 400-byte source buffer
+# for the buffer_full test (tests/vice_smoke.sh).
+APP_C64_OBJ := $(addprefix $(C64_BUILD)/,editor.o edscreen_s.o textbuf.o) \
+	$(CORE_C64_OBJ) $(PLAT_C64_OBJ)
+
+$(C64_BUILD)/starter.h: examples/square.pl0 tools/pl0_to_c.py
+	@mkdir -p $(C64_BUILD)
+	python3 tools/pl0_to_c.py $< $@
+
+$(C64_BUILD)/main.o: src/c64/main.c $(C64_BUILD)/starter.h $(HDRS)
+	$(call c64_cc,$<,main,\043include "$(C64_BUILD)/starter.h"\n)
+
+$(C64_BUILD)/main_tiny.o: src/c64/main.c $(C64_BUILD)/starter.h $(HDRS)
+	$(call c64_cc,$<,main_tiny,\043define PL0_SOURCE_CAP 400\n\043include "$(C64_BUILD)/starter.h"\n)
+
+$(C64_BUILD)/pl0.prg: $(C64_BUILD)/main.o $(APP_C64_OBJ) $(C64_CFG)
+	$(call c64_link,pl0,$(C64_BUILD)/main.o $(APP_C64_OBJ))
+
+$(C64_BUILD)/pl0_tiny.prg: $(C64_BUILD)/main_tiny.o $(APP_C64_OBJ) $(C64_CFG)
+	$(call c64_link,pl0_tiny,$(C64_BUILD)/main_tiny.o $(APP_C64_OBJ))
+
+$(BUILD)/pl0.prg: $(C64_BUILD)/pl0.prg
+	cp $< $@
+
+# the editor on the target: tests/vice_smoke.sh (about 1 minute)
+c64-editor: $(BUILD)/pl0.prg $(C64_BUILD)/pl0_tiny.prg
+	sh tests/vice_smoke.sh
 
 # all examples, one after the other, and a table of the C64 run times
 c64-examples: host
