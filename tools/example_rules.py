@@ -110,9 +110,13 @@ Source limit: 1000 bytes; lines at most 38 characters.
 clipping); "Extent" is the bounding box of the drawing in pixel
 coordinates as the recorder dumps them (screen: x 0..319, y 0..199 from
 the top; the turtle's x -160..159, y 99..-100).
+"C64 s" is the run time of `pl0_run` on a PAL C64 in VICE (CPU cycles
+from the CIA2 timers / 985248; compile time not included), recorded by
+`tests/c64_examples.sh --record` in `c64-times.tsv` next to this file
+(`make c64-examples` runs them; the spec asks for about 30 s or less).
 
-| Example | Kind | Source bytes | P-code instructions | Functions | Turn trig | Lines | Extent (x; y) |
-|---------|------|-------------:|--------------------:|----------:|----------:|------:|---------------|
+| Example | Kind | Source bytes | P-code instructions | Functions | Turn trig | Lines | Extent (x; y) | C64 s |
+|---------|------|-------------:|--------------------:|----------:|----------:|------:|---------------|------:|
 """
 
 
@@ -123,12 +127,21 @@ def budget(mode, rows_path, doc_path):
             if l.strip():
                 rows.append(l.split())
     rows.sort()
+    times = {}
+    tpath = os.path.join(os.path.dirname(doc_path), "c64-times.tsv")
+    if os.path.exists(tpath):
+        with open(tpath) as f:
+            for l in f:
+                p = l.split()
+                if len(p) == 2 and not l.startswith("#"):
+                    times[p[0]] = p[1]
     text = DOC_HEAD.format(budget=INSTR_BUDGET)
     for name, kind, nbytes, instr, fns, trig, nlines, x0, x1, y0, y1 in rows:
         ext = "%s..%s; %s..%s" % (x0, x1, y0, y1) if kind == "drawing" else "-"
         lines = nlines if kind == "drawing" else "-"
-        text += "| %s | %s | %s | %s | %s | %s | %s | %s |\n" % (
-            name.upper(), kind, nbytes, "{:,}".format(int(instr)), fns, trig, lines, ext)
+        text += "| %s | %s | %s | %s | %s | %s | %s | %s | %s |\n" % (
+            name.upper(), kind, nbytes, "{:,}".format(int(instr)), fns, trig, lines, ext,
+            times.get(name, "?"))
     if mode == "write":
         with open(doc_path, "w") as f:
             f.write(text)

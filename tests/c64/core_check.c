@@ -6,6 +6,7 @@
  * be. Every program is copied into the 8 KB source buffer under the BASIC
  * ROM (BASICBSS, $A000) and compiled from there, as the editor will do.
  * Errors print through err_message, the text every front end shows.
+ * After every run the source buffer must still hold the program.
  *
  * Two builds (the wrapper Makefile writes includes a generated header
  * first, tools/pl0_to_c.py: core_src[], CORE_SRC_NAME, CORE_SRC_DRAWING):
@@ -107,6 +108,11 @@ static int run(const char *text)
         gfx_close();
     }
     if (rc) show_error();
+    /* the source must survive a run and a drawing (Global Constraints) */
+    if (memcmp(source, text, n + 1) != 0) {
+        out_line("FAIL source buffer changed");
+        return 1;
+    }
     return rc;
 }
 

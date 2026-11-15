@@ -19,6 +19,8 @@ snap1.bin (all 64 KB of RAM saved while the bitmap was shown).
                  of the set pixels within 2 pixels on every side
   --name NAME    print a result line `NAME ok|FAIL <seconds> s ...`
   --tsv FILE     append `NAME result run_s compile_s run_cycles` to FILE
+Always: no screen line may start with `FAIL` (core_check.c reports a
+damaged source buffer that way).
 
 Example mode reads `cycles C R` from the screen: C = CPU cycles of
 pl0_compile, R = of pl0_run (CIA2 timers), seconds = cycles / 985248
@@ -77,6 +79,8 @@ def main(argv):
     outdir = rest[0]
     errors = []
     lines = [l.rstrip() for l in open(os.path.join(outdir, "screen.txt")).read().splitlines()]
+
+    errors += ["screen shows %r" % l for l in lines if l.startswith("FAIL")]
 
     if "--screen" in opts:
         want = [l.rstrip() for l in open(opts["--screen"]).read().splitlines() if l.strip()]
