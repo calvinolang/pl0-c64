@@ -123,12 +123,14 @@ static Sym *declare(uint8_t kind, uint8_t first)
     return s;
 }
 
-/* factor = ident | number | "(" expression ")" | ("-" | "+") factor */
+/* factor = ident | number | "(" expression ")" | ("-" | "+") factor |
+ *          function "(" expression ")"
+ * Functions count against the expression nesting like parentheses. */
 static void factor(void)
 {
     Sym *s;
     uint16_t line;
-    uint8_t neg;
+    uint8_t neg, fn;
 
     switch (lx.tok) {
     case T_IDENT:
@@ -160,6 +162,18 @@ static void factor(void)
         next();
         factor();
         if (neg) emit(OP_OPR, OPR_NEG, (int16_t)line);
+        --nest;
+        break;
+    case T_SIN: case T_COS: case T_ATAN: case T_SQRT:
+    case T_ABS: case T_INT: case T_EXP: case T_LOG:
+        if (++nest > MAX_EXPR_NEST) fail(E_NESTING);
+        line = lx.line;            /* runtime errors report the keyword's line */
+        fn = (uint8_t)(lx.tok - T_SIN);   /* T_SIN.. and NUMFN_* share their order */
+        next();
+        expect(T_LPAREN, E_EXPECTED_LPAREN);
+        expression();
+        expect(T_RPAREN, E_EXPECTED_RPAREN);
+        emit(OP_FN, fn, (int16_t)line);
         --nest;
         break;
     default:
@@ -323,6 +337,19 @@ static void statement(void)
         if (line > CAL_MAX_LINE) line = CAL_MAX_LINE;
         emit(OP_CAL, CAL_LVL(line), CAL_ARG(s->val, line));
         depth -= n;                       /* RET pops the parameters */
+        break;
+    case T_QUERY:
+        line = lx.line;
+        next();
+        if (lx.tok != T_IDENT) fail(E_EXPECTED_IDENT);
+        s = find();
+        if (!s) fail(E_UNDECLARED);
+        if (s->kind != K_VAR) fail(E_NOT_VAR);
+        emit(OP_RED, 0, (int16_t)line);
+        push();
+        emit(OP_STO, s->level, s->val);
+        --depth;
+        next();
         break;
     case T_BANG:
         next();

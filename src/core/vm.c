@@ -178,6 +178,14 @@ int pl0_run(const Program *p, PL0Error *err)
                 continue;
             }
             break;
+        case OP_FN:
+            c = num_fn(ip->lvl, sp - 1, sp - 1);
+            if (c) return fail(err, c == 1 ? E_DOMAIN : E_OVERFLOW, ip->arg);
+            break;
+        case OP_RED:
+            if (io_read_num(sp)) return fail(err, E_BAD_INPUT, ip->arg);
+            ++sp;
+            break;
         case OP_WRN:
             --sp;
             num_format(sp, numbuf);

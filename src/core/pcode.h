@@ -26,10 +26,12 @@
  *   WRN  pop and print a number
  *   WRS  arg = byte offset into strings (NUL-terminated)
  *   WRL  print a newline
- *   RED  arg = source line; push a number read from input       (Task 8)
+ *   FN   lvl = NUMFN_* function, arg = source line; replaces the top by
+ *        fn(top) (domain error -> E_DOMAIN, overflow -> E_OVERFLOW)
+ *   RED  arg = source line; push a number read from input (E_BAD_INPUT)
  */
 enum { OP_LIT, OP_OPR, OP_LOD, OP_STO, OP_CAL, OP_INT, OP_JMP, OP_JPC,
-       OP_WRN, OP_WRS, OP_WRL, OP_RED };
+       OP_WRN, OP_WRS, OP_WRL, OP_RED, OP_FN };
 
 /* OPR sub-operations (stored in Instr.lvl), Wirth's numbering. */
 enum { OPR_RET, OPR_NEG, OPR_ADD, OPR_SUB, OPR_MUL, OPR_DIV, OPR_ODD,

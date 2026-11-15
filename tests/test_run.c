@@ -446,6 +446,101 @@ static void proc_after_vars_and_consts(void) {
     CHECK_EQ_STR(run("procedure a(x); !x; procedure b(y); call a(y+1); call b(1)."), "2");
 }
 
+/* ---- math functions and input (Task 8) ---- */
+static void sqrt_basic(void) { CHECK_EQ_STR(run("!sqrt(16)."), "4"); CHECK_EQ_STR(run("!sqrt(2)*sqrt(2)."), "2"); }
+static void sin_cos(void) {
+    CHECK_EQ_STR(run("!sin(0)."), "0");
+    CHECK_EQ_STR(run("!cos(0)."), "1");
+    CHECK_EQ_STR(run("!sin(1.5707963267949)."), "1");
+}
+static void atan_pi(void) { CHECK_EQ_STR(run("!4*atan(1)."), "3.14159265"); }
+static void int_floor(void) {
+    CHECK_EQ_STR(run("!int(2.7)."), "2");
+    CHECK_EQ_STR(run("!int(-2.7)."), "-3");
+    CHECK_EQ_STR(run("!int(-2)."), "-2");
+}
+static void abs_exp_log(void) {
+    CHECK_EQ_STR(run("!abs(-3.5)."), "3.5");
+    CHECK_EQ_STR(run("!abs(2)."), "2");
+    CHECK_EQ_STR(run("!log(exp(1))."), "1");
+    CHECK_EQ_STR(run("!exp(0)."), "1");
+}
+static void fn_composition(void) {
+    CHECK_EQ_STR(run("!sqrt(abs(-16))+1."), "5");
+    CHECK_EQ_STR(run("!1+sqrt(sqrt(16))*2."), "5");
+    CHECK_EQ_STR(run("var x; begin x := 9; !sqrt(x)+sqrt(x*x) end."), "12");
+    CHECK_EQ_STR(run("procedure p(a); !sqrt(a)*a; call p(4)."), "8");
+    CHECK_EQ_STR(run("!-sqrt(4)."), "-2");
+}
+static void sqrt_negative(void) {
+    CHECK_EQ_STR(run("!sqrt(0-1)."), "ERROR line 1: domain error");
+    CHECK_EQ_STR(run("var a;\nbegin\n a := 1;\n !a+\nsqrt(0-a)\nend."), "ERROR line 5: domain error");
+}
+static void log_zero(void) {
+    CHECK_EQ_STR(run("!log(0)."), "ERROR line 1: domain error");
+    CHECK_EQ_STR(run("!log(0-2)."), "ERROR line 1: domain error");
+}
+static void exp_overflow(void) { CHECK_EQ_STR(run("!exp(1000)."), "ERROR line 1: number overflow"); }
+static void div_by_zero(void) {
+    CHECK_EQ_STR(run("!1/0."), "ERROR line 1: division by zero");
+    CHECK_EQ_STR(run("!\n1\n/\n0."), "ERROR line 3: division by zero");
+}
+static void function_missing_paren(void) {
+    CHECK_EQ_STR(run("!sqrt 16."), "ERROR line 1: \"(\" expected");
+    CHECK_EQ_STR(run("!sqrt(16."), "ERROR line 1: \")\" expected");
+    CHECK_EQ_STR(run("!sqrt()."), "ERROR line 1: expression expected");
+    CHECK_EQ_STR(run("!sqrt."), "ERROR line 1: \"(\" expected");
+}
+static const char *fns(int n) {
+    char *p = big;
+    int i;
+    *p++ = '!';
+    for (i = 0; i < n; i++) { memcpy(p, "abs(", 4); p += 4; }
+    *p++ = '1';
+    for (i = 0; i < n; i++) *p++ = ')';
+    strcpy(p, ".");
+    return big;
+}
+static void function_nesting_limit(void) {
+    CHECK_EQ_STR(run(fns(MAX_EXPR_NEST)), "1");
+    CHECK_EQ_STR(run(fns(MAX_EXPR_NEST + 1)), "ERROR line 1: nested too deeply");
+    /* functions and parentheses share the counter */
+    {   /* abs followed by k "(": the function paren plus k-1 grouping parens = k levels */
+        char src[64]; int k;
+        for (k = MAX_EXPR_NEST; k <= MAX_EXPR_NEST + 1; k++) {
+            char *q = src; int i;
+            memcpy(q, "!abs", 4); q += 4;
+            for (i = 0; i < k; i++) *q++ = '(';
+            *q++ = '1';
+            for (i = 0; i < k; i++) *q++ = ')';
+            strcpy(q, ".");
+            CHECK_EQ_STR(run(src), k > MAX_EXPR_NEST ? "ERROR line 1: nested too deeply" : "1");
+        }
+    }
+}
+static void input_ok(void) {
+    io_host_set_input("7");
+    CHECK_EQ_STR(run("var x; begin ?x; !x*2 end."), "14");
+    io_host_set_input("  3.5\n-2  10 ");
+    CHECK_EQ_STR(run("var a,b,c; begin ?a; ?b; ?c; !a; !b; !c end."), "3.5-210");
+    io_host_set_input("5");
+    CHECK_EQ_STR(run("var x;\nprocedure p; ?x;\nbegin call p; !x end."), "5");
+}
+static void input_bad(void) {
+    io_host_set_input("abc");
+    CHECK_EQ_STR(run("var x; ?x."), "ERROR line 1: bad input");
+    io_host_set_input("");
+    CHECK_EQ_STR(run("var x;\n?x."), "ERROR line 2: bad input");
+    io_host_set_input("1");
+    CHECK_EQ_STR(run("var x,y; begin ?x;\n?y end."), "ERROR line 2: bad input");  /* queue exhausted */
+}
+static void input_compile_errors(void) {
+    CHECK_EQ_STR(run("const c=1; ?c."), "ERROR line 1: not a variable");
+    CHECK_EQ_STR(run("procedure p; ; ?p."), "ERROR line 1: not a variable");
+    CHECK_EQ_STR(run("?z."), "ERROR line 1: undeclared name");
+    CHECK_EQ_STR(run("?."), "ERROR line 1: identifier expected");
+}
+
 int main(void) {
     output_literal();
     precedence_and_parens();
@@ -509,5 +604,8 @@ int main(void) {
     stopped_in_procedure();
     runtime_error_in_procedure();
     proc_after_vars_and_consts();
+    sqrt_basic(); sin_cos(); atan_pi(); int_floor(); abs_exp_log(); fn_composition();
+    sqrt_negative(); log_zero(); exp_overflow(); div_by_zero(); function_missing_paren();
+    function_nesting_limit(); input_ok(); input_bad(); input_compile_errors();
     TEST_MAIN_END();
 }

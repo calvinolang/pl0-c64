@@ -29,7 +29,31 @@ void io_put_str(const char *s)
 
 void io_put_nl(void) { io_put_str("\n"); }
 
-int io_read_num(num_t *r) { (void)r; return 1; }   /* input arrives in Task 8 */
+static char inq[256];
+static size_t inpos;
+
+void io_host_set_input(const char *s)
+{
+    strncpy(inq, s, sizeof inq - 1);
+    inq[sizeof inq - 1] = '\0';
+    inpos = 0;
+}
+
+/* Next whitespace-separated word of the queue parsed as a number; an empty
+ * queue or a malformed word is bad input. */
+int io_read_num(num_t *r)
+{
+    char w[32];
+    size_t n = 0;
+    while (inq[inpos] == ' ' || inq[inpos] == '\t' || inq[inpos] == '\n' || inq[inpos] == '\r') inpos++;
+    while (inq[inpos] && inq[inpos] != ' ' && inq[inpos] != '\t' &&
+           inq[inpos] != '\n' && inq[inpos] != '\r') {
+        if (n >= sizeof w - 1) return 1;
+        w[n++] = inq[inpos++];
+    }
+    w[n] = '\0';
+    return num_parse(w, r) != 0;
+}
 
 int io_break(void)
 {
