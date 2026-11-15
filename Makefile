@@ -17,14 +17,16 @@ test: $(TEST_BIN)
 	@fail=0; n=0; \
 	for t in $(TEST_BIN); do \
 	  n=$$((n+1)); echo "== $$t"; \
-	  $$t || fail=$$((fail+1)); \
+	  timeout 60 $$t; rc=$$?; \
+	  if [ $$rc -eq 124 ]; then echo "TIMEOUT: $$t killed after 60 s"; fi; \
+	  if [ $$rc -ne 0 ]; then fail=$$((fail+1)); fi; \
 	done; \
 	if [ $$fail -ne 0 ]; then echo "$$fail of $$n test file(s) FAILED"; exit 1; fi; \
 	echo "$$n test file(s), all checks passed"
 
 $(BUILD)/test_%: tests/test_%.c $(LIB_SRC) $(HDRS)
 	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -o $@ $< $(LIB_SRC) -lm
+	$(CC) $(CFLAGS) -DPL0_TEST_HOOKS -o $@ $< $(LIB_SRC) -lm
 
 host:
 	@test -f src/host/pl0host.c || { echo "error: src/host/pl0host.c does not exist yet"; exit 1; }
