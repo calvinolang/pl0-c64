@@ -23,9 +23,17 @@ Options (all may be repeated or combined):
                      command CMD (e.g. 'keybuf 12.5\\n', no quotes: VICE
                      would type them). Each --on fires
                      once, in the given order: one fires only after all
-                     earlier ones have fired.
+                     earlier ones have fired. CMD `pause` sends nothing
+                     and lets the emulation run until the next screen
+                     dump before later commands fire (so the program
+                     can react to keys typed just before).
+EXPECTED counts only once every --on has fired (a final line that also
+showed earlier, before the last keys, does not end the run early);
+FAILTEXT counts at any time.
   --vice ARG         one more x64sc command line argument (repeatable), e.g.
-                     --vice -8 --vice disk.d64 to attach a disk image
+                     --vice -8 --vice disk.d64 to attach a disk image (the
+                     harness detaches it before quitting, which writes
+                     the drive's buffered track to the image file)
   --snap             memory handshake for tests/c64/gfx_check.c: the program
                      writes a step number to $02A7 and waits until $02A8
                      equals it. For each new step n the harness saves all
@@ -154,10 +162,13 @@ def main():
                 lines = [l.rstrip() for l in screen.splitlines()]
                 if DEBUG: print(round(time.time() - t0, 1), [l for l in lines if l][-1:])
                 while fired < len(on) and on[fired][0] in lines:
-                    command(on[fired][1]); fired += 1
+                    cmd = on[fired][1]; fired += 1
+                    if cmd == "pause":
+                        break
+                    command(cmd)
             command("x", wait_prompt=False)
             if len(data) == 1000:
-                m = match(screen, expected, failtext)
+                m = match(screen, expected if fired == len(on) else None, failtext)
                 if m is not None: rc = m; break
         else:
             reason = "cycle limit reached" if p.poll() is not None else "wall-time guard expired"
@@ -165,6 +176,11 @@ def main():
     except OSError as e:
         print(f"vice_screen: VICE stopped ({e}); cycle limit reached?")
     try:
+        if "-8" in extra and p.poll() is None:
+            # with true drive emulation VICE keeps the drive's last
+            # written track in memory: `quit` would lose it, `detach`
+            # writes it to the image file
+            command("detach 8")
         c.sendall(b"quit\n")
     except OSError:
         pass

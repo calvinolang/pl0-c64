@@ -126,9 +126,12 @@ case_error_on_line_3() {
     --on "$boot" 'keybuf \x89var x;\nbegin\n  y := 1\nend.\x85'
 }
 
+# F1 compiles and runs the starter (a drawing; more in tests/vice_app.sh);
+# a key returns to the editor as it was
 case_compile_ok() {
-  expect "row 0 $boot" "cursor 1 0" "row 1 [ a square ]"
-  run "$CASE" $PRG 'OK - COMPILED (run comes next)' --on "$boot" 'keybuf \x85'
+  expect "row 0 $boot" "cursor 1 0" "row 1 [ a square ]" "row 24 $BAR"
+  run "$CASE" $PRG "$boot" --on "$boot" 'keybuf \x85' \
+    --on '-- SPACE: DRAWING  ANY KEY: EDITOR --' 'keybuf x'
 }
 
 # F7 at line 3 column 3; `x` returns (and is not typed); then CRSR right
