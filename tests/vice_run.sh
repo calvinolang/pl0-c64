@@ -1,30 +1,55 @@
 #!/bin/sh
 # Run a C64 program in headless VICE and check its text screen.
-# Usage: tests/vice_run.sh <prg> <expected-screen-text> <cycle-limit> [fail-text]
+# Usage: tests/vice_run.sh [options] <prg> <expected-line> <cycle-limit> [fail-text]
 #   Starts x64sc headless with warp (tools/vice_screen.py), dumps the screen
 #   RAM $0400-$07E7 through the VICE remote monitor about twice a second,
-#   converts screen codes to ASCII and greps for the expected text.
-#   Stops early when fail-text appears. The whole run is wrapped in
+#   converts screen codes to ASCII and looks for a screen line EQUAL to
+#   expected-line (trailing spaces ignored). A line STARTING with fail-text
+#   stops the run as a failure (checked first). The whole run is wrapped in
 #   `timeout` so it can never hang.
-# Exit: 0 expected text found; 1 otherwise (fail text, cycle limit, VICE
-# error or timeout); the screen is printed on failure. Work files go to
-# build/vice/<prg name>/.
-[ $# -ge 3 ] || { echo "usage: $0 <prg> <expected-screen-text> <cycle-limit> [fail-text]"; exit 2; }
-prg=$1; expected=$2; cycles=$3; failtext=${4:-}
+# Options:
+#   --on TRIGGER CMD  send monitor command CMD once a screen line equals
+#                     TRIGGER (key injection: --on 'feed1' 'keybuf "12.5\n"');
+#                     repeatable, fired in order (see tools/vice_screen.py)
+#   --snap            RAM snapshot handshake ($02A7/$02A8): OUTDIR/snapN.bin
+#                     holds all 64 KB of RAM at step N (tests/c64/gfx_check.c)
+#   --check CMD       after the screen check passed, run `CMD OUTDIR` (word
+#                     split) and fail if it fails (e.g. tools/check_bitmap.py)
+# Exit: 0 expected line found (and the check passed); 1 otherwise (fail
+# text, cycle limit, VICE error, timeout or failed check); the screen is
+# printed on failure. Work files go to build/vice/<prg name>/.
+check=
+n=$#; i=0
+while [ $i -lt $n ]; do            # pull --check out, keep everything else
+  a=$1; shift; i=$((i + 1))
+  if [ "$a" = --check ]; then check=$1; shift; i=$((i + 1)); continue; fi
+  set -- "$@" "$a"
+done
+prg=; expected=; skip=0; npos=0
+for a in "$@"; do                  # the first positional argument is the prg
+  if [ $skip -gt 0 ]; then skip=$((skip - 1)); continue; fi
+  case $a in
+    --on) skip=2 ;;
+    --snap) ;;
+    *) npos=$((npos + 1))
+       [ $npos -eq 1 ] && prg=$a
+       [ $npos -eq 2 ] && expected=$a ;;
+  esac
+done
+[ $npos -ge 3 ] || { echo "usage: $0 [--on T C]... [--snap] [--check CMD] <prg> <expected-line> <cycle-limit> [fail-text]"; exit 2; }
 [ -f "$prg" ] || { echo "vice_run: $prg not found"; exit 1; }
 root=$(cd "$(dirname "$0")/.." && pwd)
 out=$root/build/vice/$(basename "$prg" .prg)
 rm -rf "$out"; mkdir -p "$out"
-if [ -n "$failtext" ]; then
-  timeout 360 python3 "$root/tools/vice_screen.py" "$prg" "$expected" "$cycles" "$out" "$failtext"
-else
-  timeout 360 python3 "$root/tools/vice_screen.py" "$prg" "$expected" "$cycles" "$out"
-fi
+timeout 360 python3 "$root/tools/vice_screen.py" --out "$out" "$@"
 rc=$?
 pkill -f -- "-config $out/vicerc" 2>/dev/null
 if [ $rc -eq 0 ]; then
   grep -v '^ *$' "$out/screen.txt"
-  echo "vice_run: OK, screen shows '$expected'"
+  if [ -n "$check" ]; then
+    $check "$out" || { echo "vice_run: FAILED check: $check $out"; exit 1; }
+  fi
+  echo "vice_run: OK, screen shows the line '$expected'"
   exit 0
 fi
 [ $rc -eq 124 ] && echo "vice_run: TIMEOUT after 360 s"

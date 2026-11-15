@@ -17,7 +17,7 @@
  *     from num_parse or exact arithmetic.
  *   - There is no NaN in the C64 format, so to_i16(NaN) has no equivalent.
  * Extra groups: aliasing of every operation, overflow/error traps, more
- * formatting boundaries, compare/zero, and a chain of 200+ mixed ops.
+ * formatting boundaries, compare/zero, and a chain of 520 mixed ops.
  *
  * Output goes through stdio (KERNAL CHROUT), which scrolls; cc65 conio does
  * not (docs/architecture/spike-results.md section 1). Lowercase C literals
@@ -98,8 +98,9 @@ static void format_misc(void) {
  * 15 chars). The C64 range ends near 1.7e38, so the same buffer bound is
  * exercised with the longest 2-digit-exponent strings (15 chars + NUL):
  * all 9 significant digits are kept. The .5 values are exact in 32 bits;
- * they are built by exact addition because FIN (num_parse) accumulates the
- * 10 digits of "999999999.5" through x10 steps beyond 32 bits. */
+ * they are built by exact addition (num_parse would round the 10 digits of
+ * "999999999.5" to the nearest 32-bit mantissa first, which is a different
+ * test: see parse_exact). */
 static void format_bounds(void) {
     num_t a, h;
     P(&h, "0.5");
@@ -122,7 +123,7 @@ static void parse_bad(void) {
     CHECK_EQ_INT(num_parse("1e", &a), -1); CHECK_EQ_INT(num_parse("e5", &a), -1);
     CHECK_EQ_INT(num_parse("1-2", &a), -1); CHECK_EQ_INT(num_parse("1 2", &a), -1);
     CHECK_EQ_INT(num_parse("12x", &a), -1); CHECK_EQ_INT(num_parse("1e+", &a), -1);
-    /* out of the C64 range: the host returns -1 for inf, here FIN overflows */
+    /* out of the C64 range: the host returns -1 for inf, num_parse too */
     CHECK_EQ_INT(num_parse("1e39", &a), -1);
     /* accepted like strtod */
     P(&a, "+5"); fmt_is(&a, "5");
