@@ -4,7 +4,7 @@
 
 static void P(num_t *r, const char *s) { CHECK_EQ_INT(num_parse(s, r), 0); }
 static void fmt_is(const num_t *a, const char *want) {
-    char b[32];
+    char b[16];
     num_format(a, b);
     test_checks++;
     if (strcmp(b, want) != 0) { test_failures++; printf("FAIL %s:%d: format got \"%s\" expected \"%s\"\n", __FILE__, __LINE__, b, want); }
@@ -25,7 +25,19 @@ static void format_misc(void) {
     P(&a, "-7"); fmt_is(&a, "-7");
     P(&a, "3.14159265358979"); fmt_is(&a, "3.14159265");
 }
-static void parse_ok(void) { num_t a, b; P(&a, "3.14"); num_from_int(&b, 3); CHECK(num_cmp(&a, &b) > 0); CHECK_NEAR(num_to_i16(&a), 3, 0); }
+static void format_bounds(void) {
+    num_t a;
+    a = -1.23456789e100; fmt_is(&a, "-1.2345679E+100");
+    a = -1.23456789e-100; fmt_is(&a, "-1.2345679E-100");
+    a = 1e300; fmt_is(&a, "1E+300");
+    a = 1e-300; fmt_is(&a, "1E-300");
+    a = -1.7976931348623157e308; fmt_is(&a, "-1.7976931E+308");
+    a = 999999999.5; fmt_is(&a, "1E+09");
+    a = -999999999.5; fmt_is(&a, "-1E+09");
+    a = -123456789.5; fmt_is(&a, "-123456790");
+    a = -0.000123456789; fmt_is(&a, "-0.000123456789");
+}
+static void parse_ok(void) { num_t a, b; P(&a, "3.14"); num_from_int(&b, 3); CHECK(num_cmp(&a, &b) > 0); CHECK_EQ_INT(num_to_i16(&a), 3); }
 static void parse_bad(void) { num_t a; CHECK_EQ_INT(num_parse("3.1.4", &a), -1); CHECK_EQ_INT(num_parse("", &a), -1); CHECK_EQ_INT(num_parse("abc", &a), -1); }
 static void div_zero(void) { num_t a, z, r; num_from_int(&a, 1); num_from_int(&z, 0); CHECK(num_div(&r, &a, &z) != 0);
     num_from_int(&z, 4); CHECK_EQ_INT(num_div(&r, &a, &z), 0); fmt_is(&r, "0.25"); }
@@ -42,9 +54,16 @@ static void fn_domain(void) {
     num_from_int(&a, 9); CHECK_EQ_INT(num_fn(NUMFN_SQR, &r, &a), 0); fmt_is(&r, "3");
     P(&a, "-2.5"); CHECK_EQ_INT(num_fn(NUMFN_INT, &r, &a), 0); fmt_is(&r, "-3");
     CHECK_EQ_INT(num_fn(NUMFN_ABS, &r, &a), 0); fmt_is(&r, "2.5");
+    P(&a, "0"); CHECK_EQ_INT(num_fn(NUMFN_SIN, &r, &a), 0); fmt_is(&r, "0");
+    CHECK_EQ_INT(num_fn(NUMFN_COS, &r, &a), 0); fmt_is(&r, "1");
+    CHECK_EQ_INT(num_fn(NUMFN_ATN, &r, &a), 0); fmt_is(&r, "0");
+    CHECK_EQ_INT(num_fn(NUMFN_EXP, &r, &a), 0); fmt_is(&r, "1");
+    P(&a, "1"); CHECK_EQ_INT(num_fn(NUMFN_LOG, &r, &a), 0); fmt_is(&r, "0");
+    CHECK_EQ_INT(num_fn(NUMFN_ATN, &r, &a), 0); fmt_is(&r, "0.785398163");
     P(&a, "1000"); CHECK(num_fn(NUMFN_EXP, &r, &a) != 0);
 }
 static void to_i16_saturates(void) {
+    num_t n; n = NAN; CHECK_EQ_INT(num_to_i16(&n), 0);
     num_t a; P(&a, "1e9"); CHECK_EQ_INT(num_to_i16(&a), 32767);
     P(&a, "-1e9"); CHECK_EQ_INT(num_to_i16(&a), -32768);
     P(&a, "-2.5"); CHECK_EQ_INT(num_to_i16(&a), -3);
@@ -52,7 +71,7 @@ static void to_i16_saturates(void) {
 }
 
 int main(void) {
-    format_integer(); format_fraction(); format_negative(); format_huge(); format_tiny(); format_misc();
+    format_integer(); format_fraction(); format_negative(); format_huge(); format_tiny(); format_misc(); format_bounds();
     parse_ok(); parse_bad(); div_zero(); odd(); fn_domain(); to_i16_saturates();
     TEST_MAIN_END();
 }

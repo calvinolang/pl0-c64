@@ -47,6 +47,7 @@ int num_is_odd(const num_t *a)
 int16_t num_to_i16(const num_t *a)
 {
     double f = floor(*a);
+    if (isnan(f)) return 0;
     if (f >= 32767.0) return 32767;
     if (f <= -32768.0) return -32768;
     return (int16_t)f;
@@ -71,28 +72,38 @@ int num_fn(uint8_t fn, num_t *r, const num_t *a)
     return 0;
 }
 
+/* E-style output with trailing mantissa zeros removed. Writes at most 15
+ * chars + NUL: sign(1) + d.(2) + up to 8 more digits is only possible with a
+ * 2-digit exponent (worst "-1.23456789E+99" = 15); a 3-digit exponent
+ * ("E+308") gets 8 significant digits ("-1.2345679E+308" = 15). */
+static void fmt_e(double x, char *buf)
+{
+    char t[40], *e, *dot;
+
+    snprintf(t, sizeof t, "%.8E", x);
+    e = strchr(t, 'E');
+    if (e && strlen(e) > 4) {              /* 3-digit exponent: shorten mantissa */
+        snprintf(t, sizeof t, "%.7E", x);
+        e = strchr(t, 'E');
+    }
+    if (!e) { buf[0] = '\0'; return; }     /* unreachable for finite x */
+    dot = e;
+    while (dot > t && dot[-1] == '0') dot--;
+    if (dot > t && dot[-1] == '.') dot--;
+    memmove(dot, e, strlen(e) + 1);
+    memcpy(buf, t, strlen(t) + 1);         /* strlen(t) <= 15 by construction */
+}
+
 void num_format(const num_t *a, char *buf)
 {
     double x = *a, m = fabs(x);
-    char t[40], *e, *dot;
+    char t[40];
 
     if (x == 0.0) { strcpy(buf, "0"); return; }
-    if (m >= 1e9 || m < 1e-4) {
-        /* mantissa with up to 9 significant digits, trailing zeros removed */
-        snprintf(t, sizeof t, "%.8E", x);
-        e = strchr(t, 'E');
-        if (!e) { strcpy(buf, t); return; }
-        dot = e;
-        while (dot > t && dot[-1] == '0') dot--;
-        if (dot > t && dot[-1] == '.') dot--;
-        memmove(dot, e, strlen(e) + 1);
-        strcpy(buf, t);
-        return;
-    }
+    if (m >= 1e9 || m < 1e-4) { fmt_e(x, buf); return; }
     if (x == floor(x)) { snprintf(buf, 16, "%.0f", x); return; }
     snprintf(t, sizeof t, "%.9g", x);   /* %g already strips trailing zeros */
-    if (strchr(t, 'e')) {               /* rounding pushed it out of range; be safe */
-        snprintf(t, sizeof t, "%.8E", x);
-    }
+    if (strchr(t, 'e')) { fmt_e(x, buf); return; }  /* rounded out of range */
+    t[15] = '\0';                        /* defensive; max is "-0.123456789" */
     strcpy(buf, t);
 }
