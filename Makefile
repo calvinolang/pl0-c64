@@ -14,6 +14,8 @@ HDRS     := $(wildcard src/*/*.h tests/*.h)
 
 test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
+	@python3 tools/mksite.py --check
+	@python3 tools/check_site.py --source >/dev/null || python3 tools/check_site.py --source
 	@python3 tools/test_vice_screen.py
 	@python3 tools/test_check_c64_run.py >/dev/null || python3 tools/test_check_c64_run.py
 	@fail=0; n=0; \
@@ -312,6 +314,24 @@ media: $(BUILD)/pl0.prg $(BUILD)/pl0.d64
 	@if [ -z "$(MEDIA)" ]; then python3 tools/media_stills.py && python3 tools/media_demo.py; \
 	elif [ "$(MEDIA)" = demo ]; then python3 tools/media_demo.py; \
 	else python3 tools/media_stills.py $(MEDIA); fi
+
+# ---- the showcase site (Task 17): build/site from web/, the committed
+# media and the dist files. The generated gallery in web/index.html must be
+# current (tools/mksite.py --check); REPO_URL (and REPO_BRANCH) point the
+# documentation links at the repository (the Pages workflow passes them);
+# tools/check_site.py checks every link and prints the page weight.
+REPO_URL    ?=
+REPO_BRANCH ?= main
+SITE        := $(BUILD)/site
+web: dist
+	python3 tools/mksite.py --check
+	rm -rf $(SITE) && mkdir -p $(SITE)/img $(SITE)/dl
+	cp web/index.html web/style.css $(SITE)/
+	cp LICENSE $(SITE)/LICENSE.txt
+	cp docs/img/c64/*.png docs/img/c64/demo.gif $(SITE)/img/
+	cp $(BUILD)/dist/pl0.prg $(BUILD)/dist/pl0.d64 $(SITE)/dl/
+	$(if $(REPO_URL),python3 tools/mksite.py --repo-url "$(REPO_URL)" --branch "$(REPO_BRANCH)" $(SITE)/index.html)
+	python3 tools/check_site.py $(SITE)
 
 clean:
 	$(RM) -r $(BUILD)

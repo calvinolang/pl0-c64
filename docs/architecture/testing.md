@@ -25,6 +25,13 @@ directory is exactly `PL0` PRG, `INDEX` and the 15 examples as SEQ, and
 every file read back with c1541 equals `build/pl0.prg`, the INDEX text and
 `examples/*.pl0` byte for byte), lists the directory and prints the sizes.
 
+`make media` (slow, not part of any gate; the results are committed)
+regenerates the VICE captures in `docs/img/c64/` and the demo GIF;
+`make web` builds the showcase site in `build/site/` and checks its links.
+`make test` checks that the site's generated gallery is current
+(`tools/mksite.py --check`) and the links of the committed `web/` sources
+(`tools/check_site.py --source`). Both are described in `media.md`.
+
 ## Test layers
 
 | Layer | Target | Covers |

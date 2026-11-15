@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- REPO_URL: the one place for the repository's address (make web
+     REPO_URL=... sets it in the built copy; the Pages workflow passes the
+     real one). tools/mksite.py writes the documentation links from it. -->
+<meta name="repo-url" content="https://github.com/OWNER/REPO">
+<title>PL/0 for the Commodore 64</title>
+<meta name="description" content="PL/0 with floats and turtle graphics, running on a Commodore 64: editor, compiler and interpreter in one program.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<header class="hero">
+  <h1>PL/0 for the Commodore 64</h1>
+  <p class="pitch">PL/0 with floats and turtle graphics, running on a Commodore 64.
+  Niklaus Wirth's small teaching language from <cite>Algorithms + Data Structures = Programs</cite>,
+  extended with floating-point numbers, maths functions and a turtle on the C64's 320&times;200
+  bitmap screen. One program holds a full-screen editor, the compiler and the interpreter;
+  load it from a disk image, press F1, and your program runs.</p>
+  <nav aria-label="Sections">
+    <a href="#demo">Demo</a>
+    <a href="#examples">Examples</a>
+    <a href="#screens">Screens</a>
+    <a href="#run">Run it yourself</a>
+    <a href="#docs">Documentation</a>
+  </nav>
+</header>
+
+<main id="main">
+<section id="demo" aria-labelledby="demo-h">
+  <h2 id="demo-h">The first minute</h2>
+  <figure class="demo">
+    <img src="img/demo.gif" width="768" height="544" alt="Animated recording in the VICE emulator: the editor shows the starter program, F1 draws a square, back in the editor two numbers are changed (i &lt; 3, turn(120)), F1 draws a triangle, F3 opens the example picker, KOCH is loaded and F1 draws the Koch snowflake.">
+    <figcaption>Recorded in the VICE emulator from the real program: the starter, F1, an edit, F1 again,
+    then F3 opens the Koch snowflake. Cursor moves are played 2&times;, disk waits 4&times; and the 26-second snowflake 5&times; as fast.</figcaption>
+  </figure>
+</section>
+
+<section id="examples" aria-labelledby="examples-h">
+  <h2 id="examples-h">The 15 examples on the disk</h2>
+  <p>Each picture is the C64 screen at the end of a run, captured in VICE: the example opened with F3
+  from the disk and run with F1. Drawings show the bitmap screen, the others their output.
+  Open a source to read it.</p>
+  <div class="gallery">
+<!-- gallery:begin -->
+<figure class="example" id="ex-square">
+  <a href="img/square.png"><img src="img/square.png" width="768" height="544" loading="lazy" alt="SQUARE on the C64: a square, drawn by the program on the bitmap screen"></a>
+  <figcaption><strong>SQUARE</strong> <span class="kind">drawing</span><br>a square</figcaption>
+  <details>
+    <summary>Source (19 lines)</summary>
+    <pre><code>{ a square }
+{ The turtle starts in the middle
+  of the screen, facing up. Four
+  times: go forward, turn right.
+  penup/moveto/pendown first move
+  it without drawing, so that the
+  square ends up centered.
+  Try turn(120) and i &lt; 3. }
+var i;
+begin
+  penup; moveto(-80, -80); pendown;
+  i := 0;
+  while i &lt; 4 do
+  begin
+    forward(160);
+    turn(90);
+    i := i + 1
+  end
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-polygon">
+  <a href="img/polygon.png"><img src="img/polygon.png" width="768" height="544" loading="lazy" alt="POLYGON on the C64: regular polygon, drawn by the program on the bitmap screen"></a>
+  <figcaption><strong>POLYGON</strong> <span class="kind">drawing</span><br>regular polygon</figcaption>
+  <details>
+    <summary>Source (23 lines)</summary>
+    <pre><code>{ regular polygon }
+{ n equal sides, and the turtle
+  turns 360/n degrees at each
+  corner, 360 in total. The side
+  is computed so that every
+  polygon fits a circle of radius
+  r. Try n = 3, 5, 12 or 40. }
+const n = 7, r = 90, pi = 3.14159265;
+var s, i;
+begin
+  s := 2 * r * sin(pi / n);
+  penup;
+  moveto(-s / 2, -r * cos(pi / n));
+  turn(90);
+  pendown;
+  i := 0;
+  while i &lt; n do
+  begin
+    forward(s);
+    turn(-360 / n);
+    i := i + 1
+  end
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-star">
+  <a href="img/star.png"><img src="img/star.png" width="768" height="544" loading="lazy" alt="STAR on the C64: star polygon, drawn by the program on the bitmap screen"></a>
+  <figcaption><strong>STAR</strong> <span class="kind">drawing</span><br>star polygon</figcaption>
+  <details>
+    <summary>Source (24 lines)</summary>
+    <pre><code>{ star polygon }
+{ Join every k-th of n points on a
+  circle. The turtle turns 360*k/n
+  degrees at each point; after n
+  lines it has turned round k times
+  and is back at the start.
+  Try n = 5, k = 2 or n = 36, k = 17
+  (n and k without common divisor) }
+const n = 9, k = 4, r = 95,
+  pi = 3.14159265;
+var s, i;
+begin
+  s := 2 * r * sin(pi * k / n);
+  penup; moveto(0, r);
+  turn(90 + 180 * k / n);
+  pendown;
+  i := 0;
+  while i &lt; n do
+  begin
+    forward(s);
+    turn(360 * k / n);
+    i := i + 1
+  end
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-spiral">
+  <a href="img/spiral.png"><img src="img/spiral.png" width="768" height="544" loading="lazy" alt="SPIRAL on the C64: square spiral, drawn by the program on the bitmap screen"></a>
+  <figcaption><strong>SPIRAL</strong> <span class="kind">drawing</span><br>square spiral</figcaption>
+  <details>
+    <summary>Source (18 lines)</summary>
+    <pre><code>{ square spiral }
+{ Like a square, but every side is
+  a bit longer than the one before,
+  and the turtle turns 92 degrees
+  instead of 90, so the squares
+  slowly twist. Try 90, 89 or 121
+  as angle, or step = 2. }
+const angle = 92, step = 4;
+var len;
+begin
+  len := 2;
+  while len &lt; 170 do
+  begin
+    forward(len);
+    turn(angle);
+    len := len + step
+  end
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-rose">
+  <a href="img/rose.png"><img src="img/rose.png" width="768" height="544" loading="lazy" alt="ROSE on the C64: rose curve, drawn by the program on the bitmap screen"></a>
+  <figcaption><strong>ROSE</strong> <span class="kind">drawing</span><br>rose curve</figcaption>
+  <details>
+    <summary>Source (22 lines)</summary>
+    <pre><code>{ rose curve }
+{ A point at angle t and distance
+  r = 95*cos(k*t) from the middle
+  (polar coordinates) draws a rose
+  with 2k petals for even k and
+  k petals for odd k.
+  Try k = 3, 5 or 6. }
+const k = 4, steps = 144,
+  pi = 3.14159265;
+var t, r, i;
+begin
+  penup;
+  i := 0;
+  while i &lt;= steps do
+  begin
+    t := 2 * pi * i / steps;
+    r := 95 * cos(k * t);
+    moveto(r * cos(t), r * sin(t));
+    pendown;
+    i := i + 1
+  end
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-sine">
+  <a href="img/sine.png"><img src="img/sine.png" width="768" height="544" loading="lazy" alt="SINE on the C64: plot of sin(x), drawn by the program on the bitmap screen"></a>
+  <figcaption><strong>SINE</strong> <span class="kind">drawing</span><br>plot of sin(x)</figcaption>
+  <details>
+    <summary>Source (37 lines)</summary>
+    <pre><code>{ plot of sin(x) }
+{ x runs from -2*pi to 2*pi. Each
+  point is scaled to the screen:
+  sx pixels per unit along x and
+  80 pixels per unit along y. The
+  first moveto has the pen up, the
+  others draw a line to each point.
+  Try cos(x) or sin(2*x). }
+const pi = 3.14159265, sx = 23;
+var i, x;
+
+procedure tick(x, y, dx, dy);
+begin
+  penup; moveto(x - dx, y - dy);
+  pendown; moveto(x + dx, y + dy)
+end;
+
+begin
+  { axes with ticks at pi and 1 }
+  call tick(0, 0, 150, 0);
+  call tick(0, 0, 0, 92);
+  call tick(-2*pi*sx, 0, 0, 3);
+  call tick(-pi*sx, 0, 0, 3);
+  call tick(pi*sx, 0, 0, 3);
+  call tick(2*pi*sx, 0, 0, 3);
+  call tick(0, 80, 3, 0);
+  call tick(0, -80, 3, 0);
+  { the curve }
+  i := -48; penup;
+  while i &lt;= 48 do
+  begin
+    x := i * pi / 24;
+    moveto(x * sx, 80 * sin(x));
+    pendown;
+    i := i + 1
+  end
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-lissajous">
+  <a href="img/lissajous.png"><img src="img/lissajous.png" width="768" height="544" loading="lazy" alt="LISSAJOUS on the C64: Lissajous curve, drawn by the program on the bitmap screen"></a>
+  <figcaption><strong>LISSAJOUS</strong> <span class="kind">drawing</span><br>Lissajous curve</figcaption>
+  <details>
+    <summary>Source (18 lines)</summary>
+    <pre><code>{ Lissajous curve }
+{ x and y swing like two pendulums
+  with frequencies a and b:
+  x = 150*sin(a*t), y = 90*sin(b*t),
+  and t goes from 0 to 2*pi.
+  Try a = 3, b = 4 or a = 5, b = 4. }
+const a = 3, b = 2, steps = 120,
+  pi = 3.14159265;
+var t, i;
+begin
+  i := 0;
+  while i &lt; steps do
+  begin
+    i := i + 1;
+    t := 2 * pi * i / steps;
+    moveto(150*sin(a*t), 90*sin(b*t))
+  end
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-factorial">
+  <a href="img/factorial.png"><img src="img/factorial.png" width="768" height="544" loading="lazy" alt="FACTORIAL on the C64: factorials 1! to 12!, the program&#x27;s output on the text screen"></a>
+  <figcaption><strong>FACTORIAL</strong> <span class="kind">text</span><br>factorials 1! to 12!</figcaption>
+  <details>
+    <summary>Source (28 lines)</summary>
+    <pre><code>{ factorials 1! to 12! }
+{ n! = 1*2*...*n. fact(k) calls
+  itself with k-1 until it reaches
+  0! = 1 (recursion). The result
+  comes back in the variable f.
+  Try 20 instead of 12: from 13!
+  on the numbers print as 1.2E+10. }
+var n, f;
+
+procedure fact(k);
+begin
+  if k = 0 then f := 1;
+  if k &gt; 0 then
+  begin
+    call fact(k - 1);
+    f := f * k
+  end
+end;
+
+begin
+  n := 1;
+  while n &lt;= 12 do
+  begin
+    call fact(n);
+    !n; !&#x27;! = &#x27;; !f; !;
+    n := n + 1
+  end
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-gcd">
+  <a href="img/gcd.png"><img src="img/gcd.png" width="768" height="544" loading="lazy" alt="GCD on the C64: greatest common divisor, the program&#x27;s output on the text screen"></a>
+  <figcaption><strong>GCD</strong> <span class="kind">text</span><br>greatest common divisor</figcaption>
+  <details>
+    <summary>Source (29 lines)</summary>
+    <pre><code>{ greatest common divisor }
+{ Euclid: gcd(a, b) = gcd(b, r),
+  r = remainder of a/b, until r
+  is 0. Each number printed is the
+  remainder of the two before it.
+  Fibonacci numbers are the
+  slowest case. Try 1000, 625. }
+var g;
+
+procedure gcd(a, b);
+begin
+  !a; !&#x27; &#x27;;
+  if b = 0 then g := a;
+  if b &gt; 0 then
+    call gcd(b, a - int(a / b) * b)
+end;
+
+procedure show(a, b);
+begin
+  call gcd(a, b);
+  !&#x27;-&gt; &#x27;; !g; !
+end;
+
+begin
+  call show(1071, 462);
+  call show(1989, 867);
+  call show(360, 84);
+  call show(144, 89)
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-primes">
+  <a href="img/primes.png"><img src="img/primes.png" width="768" height="544" loading="lazy" alt="PRIMES on the C64: prime numbers to 200, the program&#x27;s output on the text screen"></a>
+  <figcaption><strong>PRIMES</strong> <span class="kind">text</span><br>prime numbers to 200</figcaption>
+  <details>
+    <summary>Source (37 lines)</summary>
+    <pre><code>{ prime numbers to 200 }
+{ n is prime if no d with d*d &lt;= n
+  divides it. d divides n when n/d
+  is a whole number: int(n/d) = n/d.
+  Only odd n and d are tried, and
+  the search stops at a divisor.
+  Try max = 500 (it takes longer). }
+const max = 200;
+var n, d, p, c, k;
+
+procedure show(x);
+begin
+  if c = 10 then begin !; c := 0 end;
+  if c &gt; 0 then !&#x27; &#x27;;
+  if x &lt; 100 then !&#x27; &#x27;;
+  if x &lt; 10 then !&#x27; &#x27;;
+  !x;
+  c := c + 1; k := k + 1
+end;
+
+begin
+  call show(2);
+  n := 3;
+  while n &lt;= max do
+  begin
+    p := 1; d := 3;
+    while d * d &lt;= n do
+    begin
+      if int(n/d) = n/d then
+      begin p := 0; d := n end;
+      d := d + 2
+    end;
+    if p = 1 then call show(n);
+    n := n + 2
+  end;
+  !; !k; !&#x27; primes up to &#x27;; !max; !
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-newton">
+  <a href="img/newton.png"><img src="img/newton.png" width="768" height="544" loading="lazy" alt="NEWTON on the C64: square root by Newton, the program&#x27;s output on the text screen"></a>
+  <figcaption><strong>NEWTON</strong> <span class="kind">text</span><br>square root by Newton</figcaption>
+  <details>
+    <summary>Source (21 lines)</summary>
+    <pre><code>{ square root by Newton }
+{ Start with a guess x and replace
+  it by the average of x and a/x.
+  The number of correct digits
+  about doubles in every step,
+  until the computer runs out of
+  digits. Try a = 10 or a = 1000. }
+const a = 2;
+var x, r, i;
+begin
+  r := sqrt(a);
+  !&#x27;sqrt(&#x27;; !a; !&#x27;) = &#x27;; !r; !; !;
+  x := 1; i := 0;
+  while i &lt;= 5 do
+  begin
+    !&#x27;step &#x27;; !i; !&#x27;: x = &#x27;; !x; !;
+    !&#x27;   error = &#x27;; !x - r; !;
+    x := (x + a/x) / 2;
+    i := i + 1
+  end
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-pi">
+  <a href="img/pi.png"><img src="img/pi.png" width="768" height="544" loading="lazy" alt="PI on the C64: pi from two series, the program&#x27;s output on the text screen"></a>
+  <figcaption><strong>PI</strong> <span class="kind">text</span><br>pi from two series</figcaption>
+  <details>
+    <summary>Source (39 lines)</summary>
+    <pre><code>{ pi from two series }
+{ Leibniz: pi/4 = 1-1/3+1/5-1/7...
+  is simple but slow: 1000 terms
+  give 3 digits. Machin: pi/4 =
+  4*atan(1/5) - atan(1/239), with
+  atan(x) = x-x^3/3+x^5/5-..., is
+  fast: 7 digits in 5 terms. }
+var s, i, m, a, b, p, q, t;
+begin
+  !&#x27;Leibniz series&#x27;; !;
+  !&#x27;terms  pi&#x27;; !;
+  s := 0; i := 0; m := 5;
+  while i &lt; 500 do
+  begin
+    s := s + 1/(4*i+1) - 1/(4*i+3);
+    i := i + 1;
+    if i = m then
+    begin
+      if i &lt; 50 then !&#x27; &#x27;;
+      if i &lt; 500 then !&#x27; &#x27;;
+      !2*i; !&#x27;   &#x27;; !4*s; !;
+      m := m * 10
+    end
+  end;
+  !; !&#x27;Machin formula&#x27;; !;
+  !&#x27;terms  pi&#x27;; !;
+  a := 0; b := 0; i := 0; t := 1;
+  p := 1/5; q := 1/239;
+  while i &lt; 6 do
+  begin
+    a := a + t * p / (2*i+1);
+    b := b + t * q / (2*i+1);
+    p := p / 25; q := q / 57121;
+    t := -t; i := i + 1;
+    !&#x27;   &#x27;; !i; !&#x27;   &#x27;;
+    !16*a - 4*b; !
+  end;
+  !; !&#x27;4*atan(1) = &#x27;; !4 * atan(1); !
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-koch">
+  <a href="img/koch.png"><img src="img/koch.png" width="768" height="544" loading="lazy" alt="KOCH on the C64: Koch snowflake, drawn by the program on the bitmap screen"></a>
+  <figcaption><strong>KOCH</strong> <span class="kind">drawing</span><br>Koch snowflake</figcaption>
+  <details>
+    <summary>Source (36 lines)</summary>
+    <pre><code>{ Koch snowflake }
+{ A side of depth d is four sides
+  of depth d-1, a third as long,
+  with a bump in the middle. Depth
+  0 is a straight line. Three
+  sides make the snowflake.
+  Try depth 1, 2 or 4 (slow). }
+const depth = 3, len = 162;
+var i;
+
+procedure koch(len, depth);
+begin
+  if depth = 0 then forward(len);
+  if depth &gt; 0 then
+  begin
+    call koch(len / 3, depth - 1);
+    turn(-60);
+    call koch(len / 3, depth - 1);
+    turn(120);
+    call koch(len / 3, depth - 1);
+    turn(-60);
+    call koch(len / 3, depth - 1)
+  end
+end;
+
+begin
+  penup; moveto(-len / 2, 47);
+  turn(90); pendown;
+  i := 0;
+  while i &lt; 3 do
+  begin
+    call koch(len, depth);
+    turn(120);
+    i := i + 1
+  end
+end.
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-sierpinski">
+  <a href="img/sierpinski.png"><img src="img/sierpinski.png" width="768" height="544" loading="lazy" alt="SIERPINSKI on the C64: Sierpinski triangle, drawn by the program on the bitmap screen"></a>
+  <figcaption><strong>SIERPINSKI</strong> <span class="kind">drawing</span><br>Sierpinski triangle</figcaption>
+  <details>
+    <summary>Source (28 lines)</summary>
+    <pre><code>{ Sierpinski triangle }
+{ The triangle is three half-size
+  copies of itself, and so on.
+  At depth 0 one triangle is drawn
+  with moveto: its corners are
+  computed, the turtle never turns.
+  Try depth 2 or 5 (slower). }
+const depth = 4, h = 0.8660254;
+
+procedure tri(x, y, s, d);
+begin
+  if d = 0 then
+  begin
+    penup; moveto(x, y); pendown;
+    moveto(x + s, y);
+    moveto(x + s / 2, y + s * h);
+    moveto(x, y)
+  end;
+  if d &gt; 0 then
+  begin
+    s := s / 2; d := d - 1;
+    call tri(x, y, s, d);
+    call tri(x + s, y, s, d);
+    call tri(x + s/2, y + s*h, s, d)
+  end
+end;
+
+call tri(-108, -94, 216, depth).
+</code></pre>
+  </details>
+</figure>
+<figure class="example" id="ex-tree">
+  <a href="img/tree.png"><img src="img/tree.png" width="768" height="544" loading="lazy" alt="TREE on the C64: fractal tree, drawn by the program on the bitmap screen"></a>
+  <figcaption><strong>TREE</strong> <span class="kind">drawing</span><br>fractal tree</figcaption>
+  <details>
+    <summary>Source (28 lines)</summary>
+    <pre><code>{ fractal tree }
+{ A tree is a trunk with two
+  smaller trees on top, one turned
+  left and one turned right. After
+  a branch the turtle goes back
+  down with the pen up. Try
+  angle = 20, f = 0.6 or depth 5. }
+const depth = 7, angle = 35,
+  f = 0.72;
+
+procedure tree(len, d);
+begin
+  forward(len);
+  if d &gt; 1 then
+  begin
+    turn(-angle);
+    call tree(len * f, d - 1);
+    turn(2 * angle);
+    call tree(len * f, d - 1);
+    turn(-angle)
+  end;
+  penup; forward(-len); pendown
+end;
+
+begin
+  penup; moveto(0, -95); pendown;
+  call tree(62, depth)
+end.
+</code></pre>
+  </details>
+</figure>
+<!-- gallery:end -->
+  </div>
+</section>
+
+<section id="screens" aria-labelledby="screens-h">
+  <h2 id="screens-h">The editor</h2>
+  <div class="screens">
+    <figure><a href="img/editor.png"><img src="img/editor.png" width="768" height="544" loading="lazy" alt="The editor with the starter program, a square. The status bar shows the program name and the cursor's line and column; the key bar at the bottom lists F1 Run, F2 New, F3 Open, F5 Save, F7 Help."></a>
+      <figcaption>The editor with the starter program.</figcaption></figure>
+    <figure><a href="img/editor-error.png"><img src="img/editor-error.png" width="768" height="544" loading="lazy" alt="A compile error: forward is misspelled forwrd on line 15; the bottom row shows ERROR line 15: undeclared name in light red and the cursor is on line 15."></a>
+      <figcaption>A compile error: the message, the cursor on its line.</figcaption></figure>
+    <figure><a href="img/picker.png"><img src="img/picker.png" width="768" height="544" loading="lazy" alt="The F3 picker: OPEN PROGRAM, the 15 examples with their one-line descriptions, KOCH selected."></a>
+      <figcaption>F3: open a program from the disk.</figcaption></figure>
+    <figure><a href="img/help.png"><img src="img/help.png" width="768" height="544" loading="lazy" alt="The F7 help page: the function keys, the editing keys, a summary of the language and what the keys do after a run."></a>
+      <figcaption>F7: the help page.</figcaption></figure>
+    <figure><a href="img/save.png"><img src="img/save.png" width="768" height="544" loading="lazy" alt="F5 save: the bottom row asks SAVE AS: MYSQUARE."></a>
+      <figcaption>F5: save to the disk under a name.</figcaption></figure>
+  </div>
+</section>
+
+<section id="run" aria-labelledby="run-h">
+  <h2 id="run-h">Run it yourself</h2>
+  <ol class="steps">
+    <li>Download the disk image <a href="dl/pl0.d64" download><code>pl0.d64</code></a>
+      (the program and the 15 examples) or the bare program <a href="dl/pl0.prg" download><code>pl0.prg</code></a>.</li>
+    <li>Install <a href="https://vice-emu.sourceforge.io/">VICE</a>, the Versatile Commodore Emulator, with its C64 ROMs.</li>
+    <li>Start it:
+      <pre><code>x64sc -autostart pl0.d64</code></pre>
+      or, without the examples, <code>x64sc pl0.prg</code>. Loading from the emulated 1541 takes about
+      80 seconds, as on a real C64 (VICE's warp mode, Alt+W, makes it quick).</li>
+  </ol>
+  <h3>Keys</h3>
+  <table class="keys">
+    <caption class="sr">Keys of the editor</caption>
+    <thead><tr><th scope="col">Key</th><th scope="col">Does</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>F1</kbd></td><td>compile and run; an error comes back with the cursor on its line</td></tr>
+      <tr><td><kbd>F2</kbd></td><td>new program</td></tr>
+      <tr><td><kbd>F3</kbd></td><td>open a program or an example from the disk</td></tr>
+      <tr><td><kbd>F5</kbd></td><td>save to the disk</td></tr>
+      <tr><td><kbd>F7</kbd></td><td>help</td></tr>
+      <tr><td><kbd>RUN/STOP</kbd> (<kbd>Esc</kbd> on a PC keyboard in VICE)</td><td>stop a running program</td></tr>
+      <tr><td><kbd>SPACE</kbd> after a drawing</td><td>switch between the drawing and the text output; any other key returns to the editor</td></tr>
+    </tbody>
+  </table>
+  <p>Any emulator that runs the original Commodore 64 ROMs should work, and so should a real C64 with a
+  1541 drive; VICE (<code>x64sc</code>, 3.7) is the one the program is tested on.</p>
+
+  <h3 id="why">Why no emulator in the browser?</h3>
+  <p>The program calls the floating-point routines of the C64's BASIC ROM, and the only open
+  replacement ROMs do not implement most of them yet, while the original Commodore ROMs cannot be
+  redistributed here with clear rights. So this page shows recordings of the real program and lets
+  you run it in your own emulator, which brings its own ROMs.</p>
+</section>
+
+<section id="docs" aria-labelledby="docs-h">
+  <h2 id="docs-h">Documentation</h2>
+  <ul>
+    <li><a data-repo-path="docs/USER-GUIDE.md" href="https://github.com/OWNER/REPO/blob/main/docs/USER-GUIDE.md">User guide</a>: the editor, running programs, the disk.</li>
+    <li><a data-repo-path="docs/LANGUAGE.md" href="https://github.com/OWNER/REPO/blob/main/docs/LANGUAGE.md">Language reference</a>: PL/0 with floats and the turtle.</li>
+    <li><a data-repo-path="README.md" href="https://github.com/OWNER/REPO/blob/main/README.md">The repository</a>: sources, build (cc65), tests in VICE.</li>
+  </ul>
+</section>
+</main>
+
+<footer>
+  <h2 id="licences">Licences</h2>
+  <p>The program, its examples and this page are released under the <a href="LICENSE.txt">MIT licence</a>.
+  No ROM images and no emulator are distributed here or in the repository: to run the program you need
+  an emulator with its own C64 ROMs (VICE's installation provides them) or a real C64.
+  The screen images are captures of this program running in VICE; they show the C64's character set
+  and colours as the emulator renders them from its ROMs.</p>
+</footer>
+</body>
+</html>

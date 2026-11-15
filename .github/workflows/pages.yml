@@ -1,0 +1,44 @@
+name: pages
+# The showcase site on GitHub Pages: web/ with the committed media
+# (docs/img/c64, made by `make media` locally, not here) and the products
+# pl0.prg and pl0.d64 built from the sources (make dist web). Deploys on a
+# push to the default branch only.
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        # cc65 builds the program; c1541 (in the vice package, no ROMs
+        # needed) writes the disk image
+        run: sudo apt-get update && sudo apt-get install -y gcc make python3 cc65 vice
+      - name: Build the site
+        run: >-
+          make dist web
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+          REPO_BRANCH="${{ github.event.repository.default_branch }}"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/site
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

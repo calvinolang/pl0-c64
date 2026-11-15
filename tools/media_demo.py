@@ -26,9 +26,10 @@ Frames are taken at emulated-time checkpoints, not wall time:
   - there: the stopwatch (`sw`, CPU cycles), `screenshot "F" 2` (VICE's
     PNG of the whole 384x272 screen) and the screen RAM for the triggers.
 A frame lasts (its stopwatch to the next) / 985248 s (PAL), divided by
-the speed of its part of the story (`speed`: the 26 s Koch run and the
-disk waits are played faster, which the GIF says on a caption-free
-basis only in docs/architecture/media.md). Identical frames are merged.
+the speed of its part of the story (`speed`: cursor moves 2x, disk
+waits 4x, the 26 s Koch run 5x; the site's caption and
+docs/architecture/media.md say so). Identical frames are merged; torn
+frames (two border colours: a screen switch during the frame) dropped.
 Then a title card (drawn with the C64 character ROM from the VICE
 installation, at generation time only) and the frames go into a GIF
 with one exact 16-colour palette, 2x nearest neighbour (768x544).
