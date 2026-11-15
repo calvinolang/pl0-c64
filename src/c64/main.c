@@ -183,7 +183,11 @@ static void save_program(void)
             fname[len] = 0;
         }
     }
-    if (!disk_name_ok(fname)) {
+    /* PL0 and INDEX are the program and the example list: the drive
+     * answers FILE EXISTS for them too, and a replace would scratch them
+     * (S0:PL0 deletes the program from the disk). Names are upper case
+     * here (shifted letters were mapped above), as the drive compares. */
+    if (!disk_name_ok(fname) || !strcmp(fname, "PL0") || !strcmp(fname, "INDEX")) {
         editor_set_alert("BAD NAME");
         return;
     }
@@ -241,6 +245,12 @@ int main(void)
 
     memset(_HIBSS_RUN__, 0, (size_t)_HIBSS_SIZE__);
     memset(_LOWBSS_RUN__, 0, (size_t)_LOWBSS_SIZE__);
+    /* RESTORE: the KERNAL's NMI handler jumps through $0318; a lone RTI
+     * there disables RUN/STOP+RESTORE, which would otherwise leave the
+     * program for BASIC and lose the text (also in the middle of a ROM
+     * float call, with $0300 pointing at the shims' trap). No path returns
+     * to BASIC, so the old vector is never needed again. */
+    *(uint16_t *)0x0318 = (uint16_t)gfx_nmi_rti;
     disk_init();
     io_before_input = gfx_hide;
     tb_init(&text, source, sizeof source);

@@ -57,6 +57,14 @@ switch the character set (`$0291 = $80`); both are restored when the
 editor returns. Keys typed before the editor shows (during a compile or a
 run) are dropped.
 
+RESTORE does nothing anywhere in the program: `main()` points the
+KERNAL's NMI vector `$0318` at `gfx_nmi_rti`, a lone RTI (the KERNAL's
+NMI entry does SEI and jumps through `$0318`; the RTI restores the
+interrupted flags). Without it RUN/STOP+RESTORE dropped to BASIC and
+lost the text, and a RESTORE during a ROM float call left `$0300`
+pointing at the shims' trap. The old vector is not kept: no path
+returns to BASIC. `make c64-autostart` checks the vector.
+
 ## How it works
 
 - The editor works on a copy of the caller's `TextBuf`, `ed_tb`, and copies
@@ -160,7 +168,10 @@ reversed) cell as the cursor. Letters (typed upper case either way),
 digits and punctuation are taken, up to 16 characters; DEL deletes;
 RETURN saves; RUN/STOP cancels. The name is checked then: empty, longer
 than 12 or any character outside `A-Z 0-9 - _ .` gives `BAD NAME` and
-writes nothing. An existing file asks `REPLACE? (Y/N)` (N or RUN/STOP:
+writes nothing; so do the reserved names `PL0` (the program) and `INDEX`
+(the example list), which the drive would report as existing files and
+a replace would scratch (`S0:PL0` deletes the program from the disk;
+found by the final review). An existing file asks `REPLACE? (Y/N)` (N or RUN/STOP:
 `NOT SAVED`). Success: `SAVED NAME`, the program takes the name, not
 modified.
 

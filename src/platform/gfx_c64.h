@@ -11,5 +11,8 @@ void gfx_show(void);
 void gfx_hide(void);
 #include <stdint.h>
 extern uint8_t gfx_shown;   /* nonzero while the bitmap is on screen */
+/* gfx_c64.s: a lone RTI, the NMI (RESTORE) handler: gfx_open puts it in
+ * the RAM vector $FFFA, main.c in the KERNAL's NMI vector $0318 */
+void gfx_nmi_rti(void);
 
 #endif

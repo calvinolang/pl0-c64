@@ -25,8 +25,6 @@
 #define MATRIX  ((void *)0xCC00)
 #define NMI_VEC (*(uint16_t *)0xFFFA)   /* RAM vector, read only while the KERNAL is out */
 
-void gfx_nmi_rti(void);                 /* gfx_c64.s: a lone RTI */
-
 static uint8_t s_dd00, s_d011, s_d016, s_d018, s_d020;
 uint8_t gfx_shown;      /* the bitmap is on screen (gfx_c64.h) */
 uint8_t gfx_hidden;     /* a drawing was switched off for input */
@@ -65,7 +63,7 @@ void gfx_open(void)
 {
     memset(BITMAP, 0, 8000);            /* CPU writes go to RAM under the ROM */
     memset(MATRIX, 0x01, 1000);         /* black ink, white paper */
-    /* RESTORE (NMI) while gfx_draw has the KERNAL out would fetch the
+    /* RESTORE (NMI) while gfx_line has the KERNAL out would fetch the
      * vector from RAM: make it a no-op. $FFFA lies past the bitmap. */
     NMI_VEC = (uint16_t)gfx_nmi_rti;
     gfx_show();

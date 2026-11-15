@@ -17,6 +17,9 @@
 #     ` PL/0   SQUARE  ...  L 1  C 1`, the key bar
 #     ` F1 Run F2 New F3 Open F5 Save F7 Help`, both reverse, row 1 the
 #     starter's first line, cursor at line 1 column 1;
+#   - RESTORE is disabled: the KERNAL's NMI vector $0318/$0319 points at
+#     gfx_nmi_rti (a lone RTI; main() sets it; the monitor cannot press
+#     RESTORE, so the vector is what is checked);
 #   - F1 draws the SQUARE starter: the bitmap against the host rendering
 #     (pl0host --pbm) with the pixel count, box and overlap checks of
 #     tools/check_c64_run.py, at `-- SPACE: DRAWING  ANY KEY: EDITOR --`.
@@ -38,12 +41,15 @@ boot=$(printf ' PL/0   %-16sL %s  C %s' SQUARE 1 1)
 [ -x build/pl0host ] || { echo "vice_autostart: build/pl0host missing (make host)"; exit 1; }
 main=$(awk '$3 == "._main" { print substr($2, 3) }' "$LBL")
 [ -n "$main" ] || { echo "vice_autostart: _main not in $LBL"; exit 1; }
+rti=$(awk '$3 == "._gfx_nmi_rti" { print substr($2, 3) }' "$LBL")
+[ -n "$rti" ] || { echo "vice_autostart: _gfx_nmi_rti not in $LBL"; exit 1; }
 mkdir -p "$W"
 echo "break $main" > "$W/moncommands.txt"
 build/pl0host --pbm "$W/square.pbm" examples/square.pl0 > /dev/null || exit 1
 EXP=$W/expect.txt
 printf '%s\n' "screen boot.bin" "row 0 $boot" "reverse 0" "row 24 $BAR" "reverse 24" \
-  "row 1 [ a square ]" "cursor 1 0" "pbm draw.bin $W/square.pbm" > "$EXP"
+  "row 1 [ a square ]" "cursor 1 0" "pbm draw.bin $W/square.pbm" \
+  "byte nmilo.bin ff $(echo "$rti" | cut -c3-4)" "byte nmihi.bin ff $(echo "$rti" | cut -c1-2)" > "$EXP"
 
 ALL="d64 prg"
 [ $# -gt 0 ] && ALL=$*
@@ -58,7 +64,9 @@ for CASE in $ALL; do
   start=$(date +%s)
   sh tests/vice_run.sh --as-user --work "autostart_$CASE" --check "python3 tools/check_app.py '$EXP'" \
     --vice -drive8truedrive --vice -moncommands --vice "$W/moncommands.txt" \
-    --on "$boot" "bsave \"$out/boot.bin\" 0 0400 07e7" --on "$boot" 'keybuf \x85' \
+    --on "$boot" "bsave \"$out/boot.bin\" 0 0400 07e7" \
+    --on "$boot" "bsave \"$out/nmilo.bin\" 0 0318 0318" --on "$boot" "bsave \"$out/nmihi.bin\" 0 0319 0319" \
+    --on "$boot" 'keybuf \x85' \
     --on "$DRAWKEY" pause --on "$DRAWKEY" "bsave \"$out/draw.bin\" 0 0000 ffff" \
     "$file" "$DRAWKEY" "$CYCLES" > "$W/$CASE.log" 2>&1
   rc=$?

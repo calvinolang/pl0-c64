@@ -193,6 +193,30 @@ case_save_bad_name() {
   disk_file "$img" SQUARE "$W/one.pl0"
 }
 
+# ---- 6b: the reserved names PL0 (the program) and INDEX (the example
+# list): the drive answers FILE EXISTS for both, and a replace would
+# scratch them; the save refuses them with BAD NAME (typed in upper and in
+# lower case), the directory is unchanged and the program and INDEX are
+# byte for byte the ones of build/pl0.d64
+case_save_reserved() {
+  img=$(fresh "$CASE")
+  c1541 "$img" -list > "$W/before.txt"
+  expect "row 24 $BAR" "row 1 !1."
+  run "$img" "$(status 'NEW*' 1 3)" \
+    --on "$boot" 'keybuf \x89!1.\x87' \
+    --on 'SAVE AS:' 'keybuf PL0\n' --on 'BAD NAME' 'keybuf \x87' \
+    --on 'SAVE AS:' 'keybuf pl0\n' --on 'BAD NAME' 'keybuf \x87' \
+    --on 'SAVE AS:' 'keybuf INDEX\n' --on 'BAD NAME' 'keybuf \x87' \
+    --on 'SAVE AS:' 'keybuf index\n' --on 'BAD NAME' 'keybuf \x9d' || return 1
+  c1541 "$img" -list > "$W/after.txt"
+  cmp -s "$W/before.txt" "$W/after.txt" || { echo "vice_app: the directory changed"; return 1; }
+  rm -f "$W/got.bin" "$W/index0.bin"
+  c1541 "$img" -read pl0 "$W/got.bin" > /dev/null 2>&1
+  cmp -s "$PRG" "$W/got.bin" || { echo "vice_app: PL0 on $img differs from $PRG"; return 1; }
+  c1541 "$IMG" -read index,s "$W/index0.bin" > /dev/null 2>&1 || return 1
+  disk_file "$img" INDEX "$W/index0.bin"
+}
+
 # an image with user files: U01..U09 (written in a mixed order), BIG (9000
 # bytes), CRLF (CR LF line ends, a tab, a CR alone)
 picker_image() {
@@ -346,7 +370,7 @@ for i in range(205): sys.stdout.write('{ line %03d abcdefghijklmnopqrstuvwxy }\n
 }
 
 ALL="run_factorial run_error drawing_runs input_after_drawing stop_with_runstop
-save_roundtrip save_bad_name picker missing_file read_error no_disk source_at_a000"
+save_roundtrip save_bad_name save_reserved picker missing_file read_error no_disk source_at_a000"
 [ $# -gt 0 ] && ALL=$*
 [ -f "$PRG" ] && [ -f "$IMG" ] || { echo "vice_app: $PRG or $IMG missing (make c64 disk)"; exit 1; }
 [ -x build/pl0host ] || { echo "vice_app: build/pl0host missing (make host)"; exit 1; }
