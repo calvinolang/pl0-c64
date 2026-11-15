@@ -142,12 +142,12 @@ RAM first. The options, measured or sized here:
 
 | Area | Range | Bytes |
 |---|---|---:|
-| CODE | `$0840-$73FF` | 27,584 |
+| CODE | `$0840-$7464` | 27,685 |
 | RODATA + DATA + INIT | `$7400-$7DC5` | |
-| BSS | `$7DC6-$9718` | 6,483 |
-| **free below the C stack** | **`$9719-$97FF`** | **231** |
+| BSS | `$7E37-$978C` | 6,486 |
+| **free below the C stack** | **`$978D-$97FF`** | **115** |
 | HIBSS | `$C000-$CBFE` | 3,071 of 3,072 (1 free) |
-| LOWBSS (new) | `$033C-$03E6` | 171 of 192 (21 free) |
+| LOWBSS (new) | `$033C-$03E9` | 174 of 192 (18 free) |
 
 - **LOWBSS** is a new BSS-only area in `pl0-c64.cfg`: the KERNAL's
   cassette buffer `$033C-$03FB`, unused because the program never touches
@@ -160,7 +160,9 @@ RAM first. The options, measured or sized here:
   entries of 40 bytes); see editor.md for the ownership rule.
 - Without the C-to-assembly moves (disk, picker parsing) and LOWBSS the
   program overflowed `$97FF` by 988 bytes.
-- Left for Tasks 16-18: 231 bytes of low RAM, 21 of LOWBSS, 1 of HIBSS.
+- Left for Tasks 16-18 (after the review fixes: message buffer, read
+  errors, input after a drawing): 115 bytes of low RAM, 18 of LOWBSS, 1
+  of HIBSS. The module table above is from before those fixes.
   Further room, if needed: the 2 KB C stack was never measured (stack
   depth of the compiler's recursion), the help page (~690 bytes), and the
   rest of `$02A7-$02FF` (the test handshake uses `$02A7/$02A8` only in
