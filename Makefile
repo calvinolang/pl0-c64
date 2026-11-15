@@ -13,6 +13,7 @@ HDRS     := $(wildcard src/*/*.h tests/*.h)
 .PHONY: test host c64 clean
 
 test: $(TEST_BIN)
+	@python3 tools/check_error_docs.py
 	@fail=0; n=0; \
 	for t in $(TEST_BIN); do \
 	  n=$$((n+1)); echo "== $$t"; \
