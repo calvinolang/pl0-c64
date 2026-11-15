@@ -10,6 +10,11 @@ slow or wrong. Every number here comes from the
 
 ## The sequence
 
+(The diagram below, like the two in the
+[architecture overview](architecture/overview.md), is Mermaid source,
+which GitHub draws. It was written and reviewed as text; nobody has
+checked it rendered yet.)
+
 ```mermaid
 flowchart LR
     B["Brainstorming<br/>questions, approaches,<br/>UI mockups"] --> S["Design (spec)<br/>3c970e0"]
@@ -17,6 +22,7 @@ flowchart LR
     R --> P["Plan<br/>19 tasks<br/>21c98be"]
     P --> X["Subagent-driven execution<br/>implementer + reviewer per task"]
     X --> D["Documentation<br/>Task 18"]
+    D --> F["Final review<br/>and one fix wave"]
     X -.->|"spike results, web demo decision"| P
 ```
 
@@ -88,7 +94,8 @@ tasks and settled nine of them (the "pre-flight scan" at the top of the
 ledger). The work happened in a git worktree on the branch `impl`,
 which has 74 commits before this documentation: from the design
 (`3c970e0`, 12:12) to the showcase site's last fix (`a5ef336`, 20:48),
-all dated 2026-11-15.
+all dated 2026-11-15. With the documentation (Task 18, 9 commits) and
+the final fix wave (6 commits) it has 89.
 
 ### 5. Decisions the author made during execution
 
@@ -114,18 +121,20 @@ The controller stopped and asked the author three times:
 
 The plan's 19 tasks became 21: the controller inserted Task 10b (a clear
 message for strings that are too long) and Task 12b (ASCII on the C64
-and the first run of the core on the C64). Up to Task 17 that is 20
-tasks, from the ledger:
+and the first run of the core on the C64). From the ledger:
 
 | | Tasks |
 |---|---|
-| review clean at the first attempt (11) | 0, 1, 3, 4, 6, 7, 8, 10, 10b, 11, 14 |
+| review clean at the first attempt (12) | 0, 1, 3, 4, 6, 7, 8, 10, 10b, 11, 14, 18 |
 | one fix round, then clean (9) | 2, 5, 9, 12, 12b, 13, 15, 16, 17 |
 | more than one fix round | none |
 
-The reviews raised 10 Important findings (Task 5: 2, Tasks 9, 12, 12b,
-13, 15, 16: 1 each, Task 17: 2) and one failed spec check (Task 2); none
-was rated Critical. Smaller findings were recorded as "minor" (30
+Then the whole-branch review and one fix wave
+([below](#the-final-review-and-the-fix-wave)): 10 fix rounds in all.
+
+The task reviews raised 10 Important findings (Task 5: 2, Tasks 9, 12,
+12b, 13, 15, 16: 1 each, Task 17: 2) and one failed spec check (Task 2);
+the final review added 5, so 15 in all; none was rated Critical. Smaller findings were recorded as "minor" (30
 ledger lines, often several findings each) and deferred; several were
 picked up by later tasks, for example the timeout for test programs
 (Task 7), the whole-line match of the VICE screen check (Task 12) and
@@ -142,7 +151,7 @@ work was accepted. "Review" means the reviewer subagent of that task.
 | The compiler's recursion for nested statements had no bound: deep nesting would overflow cc65's small stack on the C64 | Task 5 review (Important) | `c19a5d6` |
 | `errors.c` did not compile under cc65 (mixed pointer types in a `?:`) | Task 5 implementer, checked with `cl65` | `661557c` |
 | The line clipper had no tests with exact expected values | Task 9 review (Important) | `5fd3ae9` |
-| A string of 17 characters was reported as `unterminated string` | controller, reading the Task 10 results | Task 10b, `38e7e87` |
+| A string of 17 characters was reported as `unterminated string` | Task 10 implementer (a concern in its report); the controller scheduled Task 10b | Task 10b, `38e7e87` |
 | The ROM's number output and input are wrong in the 9th digit (pi printed as `3.14159266`) | Task 11 implementer, on the C64 | exact conversion in assembly, `18e8e95`, `ade5653` |
 | The VICE screen check passed when the expected text was empty | Task 12 review (Important) | `7e426d9` |
 | Keywords, error texts and the number format were PETSCII in some modules and ASCII in others | Task 12 implementer's concern; controller ruling | Task 12b, `96cb343` |
@@ -152,9 +161,10 @@ work was accepted. "Review" means the reviewer subagent of that task.
 | Several edits typed quickly were not all redrawn | Task 14, the implementer's own review, proven by a new on-target case | `c31ab80` |
 | `DISK ERROR: FILE NOT FOUND` overflowed its message buffer by 3 bytes | Task 15 review (Important) | `dbaff59`, with a compile-time size check |
 | The example acceptance script passed with zero examples when a pipeline step failed | Task 16 review (Important); the same pattern found in a second script | `208858f` |
-| Every VICE run with a disk waited 20 s to be killed (VICE ignored `quit` after `detach`) | Task 16 implementer | `d2ef44b`: `make c64-app` from about 9 to 2.5 minutes |
+| Every VICE run with a disk waited 20 s to be killed (VICE ignored `quit` after `detach`) | Task 16 implementer | `d2ef44b`: `make c64-app` from about 9 minutes to under 2.5 |
 | The site checker passed an empty page and had no size limits | Task 17 review (Important) | `a5ef336` |
 | No ROMs that may be published can run the program, so a browser demo cannot be legal | controller, preparing Task 17 | author's decision, plan amendment `fe2f85b` |
+| Saving under the name `PL0` or `INDEX` scratched the program or the example list from the disk after `REPLACE? (Y/N)`: the disk no longer booted | final whole-branch review, reproduced in VICE | `5fc39d2`, with an on-target case |
 
 A pattern is visible: three times (Tasks 12, 16 and 17) a test or
 checker could pass without checking anything, and each time the
@@ -196,6 +206,71 @@ its reason (and often the cost if it was wrong), and went on:
 | `942e31b`, `0a32723` | acceptance tests, `make check` and `make dist` |
 | `fe2f85b`, `9c5bd9d`, `999d647` | the web demo decision, the VICE captures, the showcase page |
 
+## The final review and the fix wave
+
+After Task 18 the controller had the whole branch reviewed at once
+(`e6c0ccf..67a92f9`, ledger "FINAL REVIEW"), by a reviewer on a
+stronger model than the per-task reviewers. Its verdict: ready to hand
+over with fixes; no Critical finding, 5 Important, 10 minor and 4
+recommendations. The Important ones:
+
+1. **Saving as `PL0` or `INDEX` destroyed the disk.** The name check
+   accepted both, the drive answered `FILE EXISTS`, the program asked
+   the ordinary `REPLACE? (Y/N)`, and Y scratched the program itself
+   (or the example list); the reviewer reproduced it in VICE. Every
+   per-task review had missed it, Task 15's too, although its diff held
+   both the disk image and the save flow: the name check looked right on
+   its own.
+2. **The compiler's nesting limits were never run on the C64,** although
+   they exist to protect its small stacks, and the memory map said the
+   stack depth was never measured.
+3. **Several language features never ran on the C64 in a committed
+   test** (`home`, `exp`, `log`, `abs`, `>=`, `#`, `<>`, a level-2
+   procedure reaching outer variables, the far clipping path, domain and
+   overflow errors through the VM). The reviewer's own sweep found no
+   defect.
+4. **The download instruction could not be followed:** "download it from
+   the showcase site", with no site deployed and no address.
+5. **Gaps in this record:** the diagrams never checked rendered, a
+   finding credited to the controller that the Task 10 implementer had
+   reported, and no account of the final review itself.
+
+The controller triaged the minor findings deferred during the tasks and
+the review's own minors: nine were fixed in the wave (two tool checks
+that could pass silently, stale comments, an unused function, wording
+and numbers in the documents), three recommendations were taken
+(disable RESTORE, describe the 80-second start-up as emulated time that
+VICE normally warps through, record the tested cc65 version), and one
+was declined (a border colour at the end of a drawing: the author wants
+no colour work, and the help page documents the keys). The other
+deferred minors stay as the ledger records them, for example the short
+time limit of the documentation's compile check under load.
+
+**The fix wave** was one fix subagent, with no second round planned, so
+it re-ran everything before reporting. It refused the two reserved
+names with `BAD NAME` (with an on-target case that tries both in both
+cases and proves the disk unchanged), disabled RESTORE through the
+KERNAL's NMI vector (checked after boot), added the worst-case nesting
+program to `make c64-core` with a stack measurement (75 of the 256
+bytes of the 6502 stack stay free, 460 of the 2,048 bytes of the C stack
+are used; the case fails below 32 and above 1,024), added a text and a
+drawing sweep against the host (all of item 3), and corrected the
+documents, including this page. The two fixes in the program cost 60
+bytes; 61 bytes of main memory are left (115 before).
+
+### Decisions left to the author
+
+Two things only the author can settle, both before the repository is
+pushed anywhere public:
+
+- **The licence holder.** `LICENSE` names the git user name; the author
+  has not confirmed it yet.
+- **The commit metadata.** Every commit on the branch carries, as git
+  does, the author's name and the email address from their git
+  configuration, a personal address. A push makes it public. Whether to
+  keep it or rewrite the author field before publishing is the author's
+  call.
+
 ## What it cost, and what was hard
 
 - **It took a while to learn the machine.** The plan's draft limits did
@@ -207,30 +282,37 @@ its reason (and often the cost if it was wrong), and went on:
 - **Memory was tight all the way.** After the editor (Task 14) 243 bytes
   were free; the first full build of Task 15 overflowed by 988 bytes.
   Making room cost a refactoring step and moving code to assembly. The
-  program ends with 115 bytes to spare, so any later feature needs
-  memory found first.
+  program ended the tasks with 115 bytes to spare and the final fix
+  wave with 61, so any later feature needs memory found first.
 - **On-target tests are slow.** At Task 15 the on-target gate took 699
   seconds; `make c64-app` alone about 9 minutes, most of it VICE waiting
-  20 seconds to be killed. After the fix of Task 16, `make check` takes
-  about 4.5 minutes and `make check-full` about 8. The host tests take
-  seconds, which is why the core was written to be tested on the host.
-- **Nine tasks needed a fix round.** Each was one round, but a round
+  20 seconds to be killed. After the fix of Task 16 `make c64-app` takes
+  under 2.5 minutes, `make check` about 4.5 minutes and `make
+  check-full` about 8. The host tests take seconds, which is why the
+  core was written to be tested on the host.
+- **Nine tasks needed a fix round,** and the branch one more at the
+  end. Each was one round, but a round
   means a second implementer pass and a second review. Several fixes
   were to tests and tools rather than to the product: a test that cannot
   fail is easy to write and hard to see.
 - **The commit trailers are not what was asked.** The author asked for
   the line `Co-Authored-By: Claude Sonnet 5.5`; 29 of the 74 commits
   before Task 18 carry `Claude Opus 5.5` instead. The ledger notes it as
-  a known deviation. The commits of this documentation task carry the
-  Opus line too: they were written by Claude Opus 5.5.
+  a known deviation. The commits of this documentation task and of the
+  final fix wave carry the Opus line too: they were written by Claude
+  Opus 5.5 (44 of the 89 commits in all).
 - **Some decisions were the controller's, not the author's.** The
   rulings above were made without asking the author. They are all
   recorded with their reasons, so they can be revisited.
 - **Not everything is verified.** The CI job that runs the on-target
-  suite on GitHub has not run yet (there is no remote repository); the
-  ROM download it uses is checked by SHA-256 but untested on a runner.
-  The program has not been run on a real C64. GitHub Pages needs one
-  manual setting before the site deploys.
+  suite on GitHub and the Pages workflow that publishes the showcase
+  site have never run (there is no remote repository); the ROM download
+  CI uses is checked by SHA-256 but untested on a runner. The program
+  has not been run on a real C64. GitHub Pages needs one manual setting
+  before the site deploys.
+- **The per-task reviews missed a disk-destroying bug.** The `PL0` and
+  `INDEX` save bug passed every per-task review; the whole-branch review
+  at the end, using the program and its disk together, found it.
 - **The cost in tokens and time** was not recorded per task. The commit
   times above are the best measure available.
 
@@ -239,8 +321,8 @@ its reason (and often the cost if it was wrong), and went on:
 - The design: [spec](superpowers/specs/2026-11-15-pl0-c64-design.md);
   the plan: [plan](superpowers/plans/2026-11-15-pl0-c64.md).
 - The record: [docs/process/](process/README.md), with the
-  [ledger](process/ledger.md) and the controller's briefs and designs
-  for Tasks 12b and 15 to 18.
+  [ledger](process/ledger.md) (to the final review) and the controller's
+  briefs and designs for Tasks 12b and 15 to 18.
 - What came out: the [README](../README.md), the
   [user guide](USER-GUIDE.md), the [language reference](LANGUAGE.md) and
   the [architecture overview](architecture/overview.md).

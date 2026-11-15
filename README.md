@@ -163,7 +163,9 @@ controller session then ran the plan with subagent-driven development,
 a fresh implementer and a reviewer for every task. The reviews caught,
 among others, a buffer overflow, a cc65 miscompile that made every
 procedure parameter 0 on the C64, and three tests that could pass
-without testing anything. [How this was built](docs/HOW-THIS-WAS-BUILT.md)
+without testing anything; a final review of the whole branch found one
+more that every task review had missed, a save that could erase the
+program from its own disk. [How this was built](docs/HOW-THIS-WAS-BUILT.md)
 tells the whole story, with the numbers and what went wrong.
 
 ## Documentation

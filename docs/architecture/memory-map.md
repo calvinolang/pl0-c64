@@ -76,7 +76,7 @@ through the labels in `build/c64/core_check.lbl`:
 
     c64-core: case i (the nesting limits): 75 of 256 bytes of the 6502 stack free, 460 of 2048 bytes of the C stack used
 
-(2026-11-15, cc65 2.19; 75 or 76 from run to run, depending on where the
+(2026-11-15, cc65 2.19; 75 to 77 from run to run, depending on where the
 jiffy interrupt falls). So the binding constraint is the 256-byte
 hardware stack, with 75 bytes to spare; the C stack uses under a quarter
 of its 2 KB. The program itself (`main` -> `run_program` ->

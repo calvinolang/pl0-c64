@@ -7,7 +7,7 @@ plan with subagent-driven development) and are copied here as they were.
 
 | File | What it is |
 |---|---|
-| [ledger.md](ledger.md) | The controller's ledger: every dispatch, review result, fix round, ruling, deferred minor finding and decision of the author, in order. A copy of `.superpowers/sdd/2026-11-15-pl0-c64/progress.md` (a git-ignored working directory) taken when Task 18 started, unchanged. |
+| [ledger.md](ledger.md) | The controller's ledger: every dispatch, review result, fix round, ruling, deferred minor finding and decision of the author, in order. A copy of `.superpowers/sdd/2026-11-15-pl0-c64/progress.md` (a git-ignored working directory), refreshed by the final fix wave: it runs to the final whole-branch review and the controller's ruling on the fix wave. Unchanged except for one absolute temporary path, replaced by `<scratch directory>` as in the designs. |
 | [task-12b-brief.md](task-12b-brief.md) | The brief of Task 12b, a task the controller inserted after the Task 12 review: ASCII inside the C64 program, and the first run of the real compiler and VM on the C64. |
 | [task-15-design.md](task-15-design.md) | The expanded design of Task 15 (run flow, program list, disk), with the memory rules that the Task 14 numbers made necessary. |
 | [task-16-design.md](task-16-design.md) | The expanded design of Task 16 (build products, acceptance gates, CI). |
@@ -23,5 +23,5 @@ The other documents of the process are in the repository already:
 Not copied: the implementers' reports (`task-N-report.md`, 5 to 384
 lines each) and the per-task briefs, which repeat the plan; they stay in
 the working directory. Absolute paths of a temporary directory were
-replaced by `<scratch directory>` in the copied designs; nothing else
-was changed.
+replaced by `<scratch directory>` in the copied designs and the ledger;
+nothing else was changed.
