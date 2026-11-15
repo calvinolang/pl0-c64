@@ -2,7 +2,9 @@
 
 `src/c64/editor.c` (logic, keys), `src/c64/edscreen.s` (gap buffer scans
 and drawing), `src/c64/main.c` (start-up and the F1/F3/F5 hooks).
-Screenshots: `docs/img/editor.png`, `docs/img/editor-error.png`.
+Screenshots (real VICE captures, `make media`): `docs/img/c64/editor.png`,
+`docs/img/c64/editor-error.png`, `docs/img/c64/picker.png`,
+`docs/img/c64/help.png`, `docs/img/c64/save.png`.
 
 ## Screen
 

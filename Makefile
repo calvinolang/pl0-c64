@@ -10,7 +10,7 @@ TEST_SRC := $(wildcard tests/test_*.c)
 TEST_BIN := $(patsubst tests/%.c,$(BUILD)/%,$(TEST_SRC))
 HDRS     := $(wildcard src/*/*.h tests/*.h)
 
-.PHONY: test host examples c64 disk c64-disk c64-app c64-mem c64-mem-limits c64-mem-doc c64-editor c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples c64-autostart c64-app-examples smoke check check-full dist clean
+.PHONY: test host examples c64 disk c64-disk c64-app c64-mem c64-mem-limits c64-mem-doc c64-editor c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples c64-autostart c64-app-examples smoke check check-full dist media web clean
 
 test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
@@ -302,6 +302,16 @@ dist: $(BUILD)/pl0.prg $(BUILD)/pl0.d64
 	@c1541 $(BUILD)/dist/pl0.d64 -list | sed 's/^/  /'
 	@for f in $(BUILD)/dist/pl0.prg $(BUILD)/dist/pl0.d64; do \
 	  printf '%s: %s bytes\n' $$f $$(wc -c < $$f); done
+
+# ---- media (Task 17): real VICE captures of the program for the docs and
+# the site: docs/img/c64/*.png (UI screens and the 15 examples, through the
+# real program) and docs/img/c64/demo.gif. Slow (several minutes) and not
+# part of check; the results are committed (docs/architecture/media.md).
+# make media MEDIA="koch help" redoes only those stills (MEDIA=demo: the GIF)
+media: $(BUILD)/pl0.prg $(BUILD)/pl0.d64
+	@if [ -z "$(MEDIA)" ]; then python3 tools/media_stills.py && python3 tools/media_demo.py; \
+	elif [ "$(MEDIA)" = demo ]; then python3 tools/media_demo.py; \
+	else python3 tools/media_stills.py $(MEDIA); fi
 
 clean:
 	$(RM) -r $(BUILD)
