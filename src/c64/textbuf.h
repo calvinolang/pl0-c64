@@ -22,7 +22,9 @@ typedef struct {
 /* cap must be >= 1. Empty buffer, cursor at 0. */
 void tb_init(TextBuf *t, char *storage, uint16_t cap);
 /* 0 ok, -1 full (text unchanged), -2 character not accepted (unchanged;
- * only 0x20..0x7E and '\n' are accepted). Inserts before the cursor. */
+ * only 0x20..0x7E and '\n' are accepted; -2 is reported before -1).
+ * Inserts before the cursor. A failed insert changes nothing, including the
+ * sticky column; any successful edit or non-vertical motion resets it. */
 int  tb_insert(TextBuf *t, char c);
 void tb_backspace(TextBuf *t);  /* no-op at start of buffer */
 void tb_delete(TextBuf *t);     /* no-op at end of buffer */
@@ -32,14 +34,21 @@ void tb_up(TextBuf *t);         /* sticky desired column; no-op on line 1 */
 void tb_down(TextBuf *t);       /* no-op on the last line */
 void tb_home(TextBuf *t);       /* start of the current line */
 void tb_end(TextBuf *t);        /* end of the current line (before '\n') */
+/* Cost: tb_line, tb_col, tb_line_count, tb_offset_of_line (and up/down/
+ * home/end/goto_line) scan the text, O(buffer) / O(line); the editor should
+ * cache the current line number rather than call tb_line per redraw. */
 uint16_t tb_line(const TextBuf *t);
 uint16_t tb_col(const TextBuf *t);
-void tb_goto_line(TextBuf *t, uint16_t line);  /* clamps to the last line */
+/* Line 0 means line 1; past the end clamps to the start of the last line. */
+void tb_goto_line(TextBuf *t, uint16_t line);
 /* NUL-terminated whole text; moves the gap to the end. The pointer stays
  * valid until the next edit. */
 const char *tb_text(TextBuf *t);
-/* Replace contents; cursor to 0. Returns nonzero (buffer unchanged) if
- * the string does not fit in cap-1 characters. Characters are not filtered. */
+/* Replace contents; cursor to 0. Returns nonzero (buffer unchanged, cursor
+ * and sticky column too) if the string does not fit in cap-1 characters.
+ * s must NOT point into the buffer's own storage: tb_set(&t, tb_text(&t))
+ * corrupts the text (no guard: it cost 63 bytes on the C64).
+ * Characters are not filtered. */
 int  tb_set(TextBuf *t, const char *s);
 
 uint16_t tb_len(const TextBuf *t);                 /* characters */

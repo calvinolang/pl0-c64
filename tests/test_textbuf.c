@@ -226,136 +226,233 @@ static void set_too_big_leaves_unchanged(void) {
     CHECK_EQ_STR(tb_text(&s), "abc");
 }
 
-/* ---- differential test against a plain-array reference model ---- */
+/* ---- differential test against a plain-array reference model ----
+ * The model derives everything from first principles: it lists the start
+ * offset of every line by scanning the array for '\n', and moves up/down/
+ * goto by line number, not by mirroring the implementation's scans. */
 #define RCAP 64
 typedef struct { char a[RCAP]; unsigned len, cur, want; } Ref;
 
-static unsigned r_ls(const Ref *r) {
-    unsigned p = r->cur;
-    while (p > 0 && r->a[p - 1] != '\n') p--;
-    return p;
-}
-static unsigned r_le(const Ref *r, unsigned p) {
-    while (p < r->len && r->a[p] != '\n') p++;
-    return p;
-}
-static unsigned r_line(const Ref *r) {
+/* Fill st[] with line start offsets; returns the number of lines. */
+static unsigned r_starts(const Ref *r, unsigned *st) {
     unsigned i, n = 1;
-    for (i = 0; i < r->cur; i++) if (r->a[i] == '\n') n++;
+    st[0] = 0;
+    for (i = 0; i < r->len; i++)
+        if (r->a[i] == '\n') st[n++] = i + 1;
     return n;
 }
-static unsigned r_col(const Ref *r) { return r->cur - r_ls(r) + 1; }
+static unsigned r_linelen(const Ref *r, const unsigned *st, unsigned n, unsigned l) {
+    return (l + 1 < n ? st[l + 1] - 1 : r->len) - st[l];
+}
+/* 0-based line index of the cursor */
+static unsigned r_lineidx(const Ref *r, const unsigned *st, unsigned n) {
+    unsigned l = 0;
+    while (l + 1 < n && st[l + 1] <= r->cur) l++;
+    return l;
+}
 static void r_ins(Ref *r, char c) {
-    if (r->len + 1 >= RCAP) return;   /* failed insert keeps the sticky column */
     r->want = 0;
     memmove(r->a + r->cur + 1, r->a + r->cur, r->len - r->cur);
     r->a[r->cur++] = c;
     r->len++;
 }
-static void r_bs(Ref *r) {
-    r->want = 0;
-    if (r->cur == 0) return;
-    memmove(r->a + r->cur - 1, r->a + r->cur, r->len - r->cur);
-    r->cur--; r->len--;
-}
-static void r_del(Ref *r) {
-    r->want = 0;
-    if (r->cur == r->len) return;
-    memmove(r->a + r->cur, r->a + r->cur + 1, r->len - r->cur - 1);
+static void r_del_at(Ref *r, unsigned pos) {
+    memmove(r->a + pos, r->a + pos + 1, r->len - pos - 1);
     r->len--;
 }
-static void r_up(Ref *r) {
-    unsigned ls, ps, plen, k;
-    if (r->want == 0) r->want = r_col(r);
-    ls = r_ls(r);
-    if (ls == 0) return;
-    ps = ls - 1;
-    while (ps > 0 && r->a[ps - 1] != '\n') ps--;
-    plen = ls - 1 - ps;
-    k = r->want - 1;
-    if (k > plen) k = plen;
-    r->cur = ps + k;
-}
-static void r_down(Ref *r) {
-    unsigned e, s, len, k;
-    if (r->want == 0) r->want = r_col(r);
-    e = r_le(r, r->cur);
-    if (e == r->len) return;
-    s = e + 1;
-    len = r_le(r, s) - s;
-    k = r->want - 1;
-    if (k > len) k = len;
-    r->cur = s + k;
+static void r_vert(Ref *r, int dir) {
+    unsigned st[RCAP + 1], n = r_starts(r, st);
+    unsigned l = r_lineidx(r, st, n), k;
+    if (r->want == 0) r->want = r->cur - st[l] + 1;
+    if (dir < 0 ? l == 0 : l + 1 == n) return;
+    l = dir < 0 ? l - 1 : l + 1;
+    k = r_linelen(r, st, n, l);
+    if (r->want - 1 < k) k = r->want - 1;
+    r->cur = st[l] + k;
 }
 static void r_goto(Ref *r, unsigned line) {
-    unsigned p = 0, n = 1;
+    unsigned st[RCAP + 1], n = r_starts(r, st);
     r->want = 0;
     if (line < 1) line = 1;
-    while (n < line) {
-        unsigned e = r_le(r, p);
-        if (e == r->len) break;     /* last line: stay at its start */
-        p = e + 1; n++;
-    }
-    r->cur = p;
+    if (line > n) line = n;
+    r->cur = st[line - 1];
 }
-static int same(TextBuf *t, const Ref *r) {
-    return tb_len(t) == r->len && tb_cursor(t) == r->cur &&
-           tb_line(t) == r_line(r) && tb_col(t) == r_col(r) &&
-           memcmp(tb_text(t), r->a, r->len) == 0 && tb_text(t)[r->len] == 0;
-}
+
 static const char alpha[] = "abc XY\n\n\n";
+static const char bad_chars[] = { '\t', '\r', 0, 0x7f, 0x1f, (char)0x80, (char)0xFF };
+
+/* Full comparison of the buffer against the model; uses tb_at only, so the
+ * gap stays wherever the last edit left it. Returns nonzero on mismatch. */
+static int differs(TextBuf *t, const Ref *r) {
+    unsigned i, st[RCAP + 1], n = r_starts(r, st), l = r_lineidx(r, st, n);
+    if (tb_len(t) != r->len || tb_cursor(t) != r->cur) return 1;
+    if (t->want != r->want) return 2;
+    if (tb_line(t) != l + 1 || tb_col(t) != r->cur - st[l] + 1) return 3;
+    if (tb_line_count(t) != n) return 4;
+    for (i = 0; i < r->len; i++)
+        if (tb_at(t, (uint16_t)i) != r->a[i]) return 5;
+    for (i = 1; i <= n + 2; i++)
+        if (tb_offset_of_line(t, (uint16_t)i) != (i <= n ? st[i - 1] : r->len))
+            return 6;
+    return 0;
+}
 
 static void differential_random(void) {
-    static char st[RCAP];
+    static char st_[RCAP];
     TextBuf t;
     Ref r;
     unsigned long seed = 12345UL;
-    unsigned n, bad = 0;
+    unsigned n, bad = 0, sets_ok = 0, sets_big = 0, invalid = 0, mid_gap = 0;
 
-    tb_init(&t, st, RCAP);
+    tb_init(&t, st_, RCAP);
     memset(&r, 0, sizeof r);
     for (n = 0; n < 20000 && !bad; n++) {
-        unsigned op, v;
-        seed = seed * 1103515245UL + 12345UL;
-        seed &= 0x7fffffffUL;
-        op = (unsigned)(seed >> 16) % 17;
-        seed = seed * 1103515245UL + 12345UL;
-        seed &= 0x7fffffffUL;
+        unsigned op, v, d;
+        seed = seed * 1103515245UL + 12345UL; seed &= 0x7fffffffUL;
+        op = (unsigned)(seed >> 16) % 21;
+        seed = seed * 1103515245UL + 12345UL; seed &= 0x7fffffffUL;
         v = (unsigned)(seed >> 16);
         switch (op) {
         case 0: case 1: case 2: case 3: case 4: {
             char c = alpha[v % (sizeof alpha - 1)];
             int rc = tb_insert(&t, c);
             CHECK_EQ_INT(rc, (r.len + 1 >= RCAP) ? -1 : 0);
-            r_ins(&r, c);
+            if (rc == 0) r_ins(&r, c);
             break; }
-        case 5: tb_backspace(&t); r_bs(&r); break;
-        case 6: tb_delete(&t); r_del(&r); break;
+        case 5:
+            tb_backspace(&t);
+            r.want = 0;
+            if (r.cur) { r_del_at(&r, r.cur - 1); r.cur--; }
+            break;
+        case 6:
+            tb_delete(&t);
+            r.want = 0;
+            if (r.cur < r.len) r_del_at(&r, r.cur);
+            break;
         case 7: tb_left(&t); r.want = 0; if (r.cur) r.cur--; break;
         case 8: tb_right(&t); r.want = 0; if (r.cur < r.len) r.cur++; break;
-        case 9: case 10: tb_up(&t); r_up(&r); break;
-        case 11: case 12: tb_down(&t); r_down(&r); break;
-        case 13: tb_home(&t); r.want = 0; r.cur = r_ls(&r); break;
-        case 14: tb_end(&t); r.want = 0; r.cur = r_le(&r, r.cur); break;
-        case 15: v %= 12; tb_goto_line(&t, (uint16_t)v); r_goto(&r, v); break;
-        default:
-            v %= (r.len + 2);
-            tb_set_cursor(&t, (uint16_t)v);
+        case 9: case 10: tb_up(&t); r_vert(&r, -1); break;
+        case 11: case 12: tb_down(&t); r_vert(&r, 1); break;
+        case 13: {
+            unsigned st[RCAP + 1], k = r_starts(&r, st);
+            tb_home(&t); r.want = 0; r.cur = st[r_lineidx(&r, st, k)];
+            break; }
+        case 14: {
+            unsigned st[RCAP + 1], k = r_starts(&r, st), l = r_lineidx(&r, st, k);
+            tb_end(&t); r.want = 0; r.cur = st[l] + r_linelen(&r, st, k, l);
+            break; }
+        case 15: /* includes 0 and lines beyond the end, and a huge line */
+            d = v % 14;
+            if (d == 13) d = 0xFFFF;
+            tb_goto_line(&t, (uint16_t)d);
+            r_goto(&r, d);
+            break;
+        case 16: /* includes offsets beyond the end */
+            d = v % (r.len + 4);
+            tb_set_cursor(&t, (uint16_t)d);
             r.want = 0;
-            r.cur = v > r.len ? r.len : v;
+            r.cur = d > r.len ? r.len : d;
+            break;
+        case 17: case 18: { /* tb_set with a random string, 0..71 chars */
+            char s[80];
+            unsigned i, len = v % 72;
+            int rc;
+            for (i = 0; i < len; i++) {
+                seed = seed * 1103515245UL + 12345UL; seed &= 0x7fffffffUL;
+                s[i] = alpha[(unsigned)(seed >> 16) % (sizeof alpha - 1)];
+            }
+            s[len] = 0;
+            rc = tb_set(&t, s);
+            if (len >= RCAP) {              /* too big: nothing changes */
+                CHECK(rc != 0);
+                sets_big++;
+            } else {
+                CHECK_EQ_INT(rc, 0);
+                memcpy(r.a, s, len);
+                r.len = len; r.cur = 0; r.want = 0;
+                sets_ok++;
+            }
+            break; }
+        case 19: { /* invalid character: nothing changes, sticky survives */
+            char c = bad_chars[v % sizeof bad_chars];
+            CHECK_EQ_INT(tb_insert(&t, c), -2);
+            invalid++;
+            break; }
+        default: /* occasionally: tb_text must keep text and cursor */
+            if (v % 8 == 0) {
+                const char *p = tb_text(&t);
+                CHECK(memcmp(p, r.a, r.len) == 0 && p[r.len] == 0);
+            }
             break;
         }
-        if (!same(&t, &r)) {
+        if (t.gs != 0 && t.gs != t.len) mid_gap++;
+        d = (unsigned)differs(&t, &r);
+        if (d) {
             bad = 1;
-            printf("differential mismatch at op #%u (op %u) tb len/cur/want %u/%u/%u ref %u/%u/%u\n", n, op, tb_len(&t), tb_cursor(&t), t.want, r.len, r.cur, r.want);
+            printf("differential mismatch at op #%u (op %u), reason %u: tb len/cur/want %u/%u/%u ref %u/%u/%u\n",
+                   n, op, d, tb_len(&t), tb_cursor(&t), t.want, r.len, r.cur, r.want);
         }
-        if (tb_len(&t) > 0) {
-            unsigned i = v % tb_len(&t);
-            if (tb_at(&t, (uint16_t)i) != r.a[i]) bad = 1;
+        if (n % 64 == 63) {                 /* occasionally the whole text */
+            const char *p = tb_text(&t);
+            if (memcmp(p, r.a, r.len) != 0 || p[r.len] != 0 ||
+                tb_cursor(&t) != r.cur) bad = 1;
         }
     }
+    { const char *p = tb_text(&t);
+      CHECK(memcmp(p, r.a, r.len) == 0 && p[r.len] == 0); }
     CHECK(!bad);
     CHECK_EQ_INT(n, 20000);
+    CHECK(sets_ok > 100 && sets_big > 100 && invalid > 100);
+    CHECK(mid_gap > 5000);                  /* gap really was mid-text */
+}
+
+static void failed_insert_keeps_sticky_column(void) {
+    fresh();
+    puts_tb("abcdef\nab\nabcdef");
+    tb_set_cursor(&tb, 5);
+    tb_down(&tb);
+    CHECK_EQ_INT(tb_col(&tb), 3);
+    CHECK_EQ_INT(tb_insert(&tb, '\t'), -2);     /* -2 changes nothing */
+    tb_down(&tb);
+    CHECK_EQ_INT(tb_col(&tb), 6);               /* sticky column survived */
+    tb_up(&tb);
+    {   /* -1: full buffer */
+        char small[4];
+        TextBuf s;
+        tb_init(&s, small, sizeof small);
+        tb_set(&s, "a\nb");                     /* 3 chars, full */
+        tb_set_cursor(&s, 3);
+        tb_up(&s);                              /* want = 2 */
+        CHECK_EQ_INT(tb_insert(&s, 'x'), -1);
+        tb_down(&s);
+        CHECK_EQ_INT(tb_col(&s), 2);
+        CHECK_EQ_INT(tb_insert(&s, '\t'), -2);  /* -2 reported before -1 */
+        CHECK_EQ_INT(tb_insert(&s, 'x'), -1);
+    }
+}
+static void goto_line_zero_is_line_one(void) {
+    fresh();
+    puts_tb("a\nb\nc");
+    tb_goto_line(&tb, 0);
+    CHECK_EQ_INT(tb_cursor(&tb), 0);
+    tb_goto_line(&tb, 0xFFFF);
+    CHECK_EQ_INT(tb_line(&tb), 3);
+    CHECK_EQ_INT(tb_col(&tb), 1);
+}
+static void set_failure_keeps_sticky_column(void) {
+    fresh();
+    puts_tb("abcdef\nab\nabcdef");
+    tb_set_cursor(&tb, 5);
+    tb_down(&tb);                               /* want = 6 */
+    {
+        char big[200];
+        memset(big, 'z', sizeof big - 1);
+        big[sizeof big - 1] = 0;
+        CHECK(tb_set(&tb, big) != 0);
+    }
+    CHECK_EQ_INT(tb_cursor(&tb), 9);
+    tb_down(&tb);
+    CHECK_EQ_INT(tb_col(&tb), 6);
 }
 
 int main(void) {
@@ -375,6 +472,9 @@ int main(void) {
     rejects_control_characters();
     set_replaces();
     set_too_big_leaves_unchanged();
+    failed_insert_keeps_sticky_column();
+    goto_line_zero_is_line_one();
+    set_failure_keeps_sticky_column();
     differential_random();
     TEST_MAIN_END();
 }
