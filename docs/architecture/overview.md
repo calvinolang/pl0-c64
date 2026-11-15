@@ -301,8 +301,8 @@ flowchart LR
         app["the program<br/>c64-editor, c64-app, c64-autostart"]
         exs["every example<br/>c64-examples, c64-app-examples"]
     end
-    gold -- "same goldens" --> exs
-    unit -- "same source" --> corec
+    gold -->|"same goldens"| exs
+    unit -->|"same source"| corec
 ```
 
 - **On the host** (`make test`, about 10 seconds) the core is compiled

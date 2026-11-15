@@ -17,7 +17,7 @@ flowchart LR
     R --> P["Plan<br/>19 tasks<br/>21c98be"]
     P --> X["Subagent-driven execution<br/>implementer + reviewer per task"]
     X --> D["Documentation<br/>Task 18"]
-    X -. "spike results,<br/>web demo decision" .-> P
+    X -.->|"spike results, web demo decision"| P
 ```
 
 ### 1. Brainstorming
