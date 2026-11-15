@@ -14,6 +14,10 @@ This page is the map; the details are in the documents it links:
 
 ## The layers
 
+(The two diagrams on this page are Mermaid source, which GitHub draws;
+they were written and reviewed as text and have not been checked
+rendered yet.)
+
 ```mermaid
 flowchart TB
     subgraph app["C64 program: src/c64"]
@@ -180,10 +184,10 @@ All numbers are from `build/c64/pl0.map` as generated in
 $0000-$03FF  zero page, CPU stack, KERNAL work area
              $033C-$03E9  LOWBSS: small variables in the cassette buffer (174 of 192 bytes)
 $0400-$07E7  text screen (editor, program output)
-$0801-$7464  BASIC stub, start-up code and CODE (27,685 bytes)
-$7465-$7E36  read-only data, data (2,514 bytes)
-$7E37-$978C  BSS (6,486 bytes): the compiled Program (4,741), symbol table, ...
-$978D-$97FF  free: 115 bytes
+$0801-$7490  BASIC stub, start-up code and CODE (27,729 bytes)
+$7491-$7E6C  read-only data, data (2,524 bytes)
+$7E6D-$97C2  BSS (6,486 bytes): the compiled Program (4,741), symbol table, ...
+$97C3-$97FF  free: 61 bytes
 $9800-$9FFF  C stack (2 KB, cc65's software stack)
 $A000-$BFFF  the program text, 8 KB, in the RAM under the BASIC ROM
 $C000-$CBFE  HIBSS (3,071 of 3,072 bytes): VM stack 2,560, editor 460, list 51
@@ -192,7 +196,7 @@ $D000-$DFFF  I/O (VIC-II, SID, CIAs)
 $E000-$FF3F  bitmap, 8,000 bytes, in the RAM under the KERNAL ROM
 ```
 
-`build/pl0.prg` is 30,302 bytes. The BASIC ROM at `$A000` must stay
+`build/pl0.prg` is 30,356 bytes. The BASIC ROM at `$A000` must stay
 usable for floating point, and the KERNAL at `$E000` for the disk and the
 keyboard, yet both 8 KB areas of RAM underneath are in use:
 
@@ -241,7 +245,9 @@ feature or a limit:
 - The 15 examples (about 8 KB) are files on the disk, not data in the
   program.
 
-What is left: 115 bytes of low RAM, 18 in LOWBSS and 1 in HIBSS.
+What is left: 61 bytes of low RAM, 18 in LOWBSS and 1 in HIBSS (115
+before the final review's fixes: the reserved save names and the
+disabled RESTORE).
 `make c64-mem` fails if BSS passes `$97FF`, if HIBSS or LOWBSS overflow,
 or if the tables in memory-map.md no longer match the map.
 
@@ -249,7 +255,7 @@ or if the tables in memory-map.md no longer match the map.
 
 | Decision | Why | Evidence |
 |---|---|---|
-| C with cc65, compiled to P-code, not assembly or a tree-walking interpreter | readable, mostly testable on a PC, close to Wirth's design; assembly would cost several times the effort, walking the text would be slow | spec section 4 |
+| C with cc65, compiled to P-code, not assembly or a text-walking interpreter (one that walks the program text directly) | readable, mostly testable on a PC, close to Wirth's design; assembly would cost several times the effort, walking the text would be slow | spec section 4 |
 | the VM stays in C | in real programs the ROM float routines dominate: an addition costs about 930 µs, a sine 27.5 ms, while tuned C dispatch costs about 505 µs per instruction against 210 µs in assembly; and one VM for both targets keeps the host tests valid for it | spike section 8 |
 | floats from the BASIC ROM | the C64 already has a tested float library and maths functions; a separate one would take kilobytes | spike section 4 |
 | ROM calls through shims with an error trap | a BASIC error (division by zero, overflow) would otherwise print `?OVERFLOW ERROR` and abandon the program; the shims point the error vector at a trap and return the error code | spike section 4, `num_c64.s` |

@@ -33,8 +33,11 @@ disk drive. The program is tested on [VICE](https://vice-emu.sourceforge.io/)
 1. **Get the files.** `pl0.d64` is a disk image with the program and the
    15 examples; `pl0.prg` is the program alone. Build them with
    `make dist` (they appear in `build/dist/`; see the
-   [README](../README.md#build-and-test)), or download them from the
-   project's showcase page.
+   [README](../README.md#build-and-test)); that needs cc65 2.19 and
+   VICE's `c1541`, see
+   [installing the tools](architecture/testing.md#installing-the-tools-ubuntu-2404).
+   Nothing has been published yet: a published release and the showcase
+   site will carry the downloads.
 2. **Install VICE.** The VICE releases from its website include the C64
    ROMs. Some Linux packages (Debian and Ubuntu) leave them out; on those,
    `sh tools/install_vice_roms.sh` fetches the VICE 3.7.1 source release,
@@ -47,9 +50,13 @@ disk drive. The program is tested on [VICE](https://vice-emu.sourceforge.io/)
    ```
 
    VICE loads the program from the emulated 1541 at the real speed of a
-   C64 disk drive: about 80 seconds until the editor appears. Warp mode
-   (Alt+W in VICE) shortens the wait; switch it off again to use the
-   program at the C64's real speed.
+   C64 disk drive: about 80 seconds of emulated time until the editor
+   appears. VICE normally runs an autostart in warp mode (its default
+   setting `AutostartWarp`) and drops back to the real speed when the
+   program starts, so on a PC the wait is much shorter (under 20 seconds
+   in the tests). If your VICE does not warp, warp mode (Alt+W) shortens
+   the wait; switch it off again to use the program at the C64's real
+   speed.
 
 `x64sc pl0.prg` starts the program without the disk image, so the
 examples are not there for F3; everything else works.
@@ -109,7 +116,8 @@ compiling or running do not reach the editor.
 
 In VICE the PC keyboard stands in for the C64's: Esc is RUN/STOP, Home
 is CLR/HOME, Backspace is INST/DEL, Insert is SHIFT+INST/DEL, F1 to F8 are
-the function keys (F2 gives SHIFT+F1) and Page Up is RESTORE. These are
+the function keys (F2 gives SHIFT+F1) and Page Up is RESTORE (which
+this program ignores). These are
 the same in VICE's symbolic and positional keyboard mappings (VICE 3.7.1,
 `gtk3_sym.vkm` and `gtk3_pos.vkm`). With the symbolic mapping the PC's
 `[` and `]` keys type the braces.
@@ -186,6 +194,9 @@ cancels.
 - A name has 1 to 12 characters from `A-Z 0-9 - _ .`, with no
   extension: `MYSQUARE`, not `MYSQUARE.PL0`. Anything else gives
   `BAD NAME` and nothing is written.
+- `PL0` and `INDEX` are reserved: they are the program itself and the
+  list of examples on the disk, and saving over them would destroy the
+  disk. Both give `BAD NAME`.
 - If a file of that name exists, the program asks `REPLACE? (Y/N)`; N or
   RUN/STOP answers `NOT SAVED`.
 - After `SAVED MYSQUARE` the program carries the new name and the `*`
@@ -216,7 +227,9 @@ fits, once to load it).
 | `INDEX` | SEQ | one line per example: name and description |
 | `SQUARE` ... `TREE` | SEQ | the 15 examples as text |
 
-The rest, 502 blocks, is free for your programs.
+The rest, 502 blocks, is free for your programs. `PL0` and `INDEX` are
+reserved names: the save refuses them (`BAD NAME`), so the disk keeps
+booting and the F3 list keeps its examples.
 
 ### Programs on a PC
 
@@ -1034,8 +1047,9 @@ has every statement and function.
 ## Troubleshooting
 
 **Nothing happens after starting VICE.** The program is loading from the
-emulated disk drive, which takes about 80 seconds, as on a real C64. Use
-warp mode (Alt+W) to wait less.
+emulated disk drive, which takes about 80 seconds of emulated time, as
+on a real C64. VICE normally warps through an autostart; if yours does
+not, use warp mode (Alt+W) to wait less.
 
 **F1 shows an error I don't understand.** Look at the line before the
 one shown too, and see the list of messages with examples in the
@@ -1058,7 +1072,7 @@ seconds. VICE's warp mode (Alt+W) runs everything faster.
 | Message | Meaning |
 |---|---|
 | `BUFFER FULL` | the text has reached 8,191 characters |
-| `BAD NAME` | the save name is empty, longer than 12 characters or has a character outside `A-Z 0-9 - _ .` |
+| `BAD NAME` | the save name is empty, longer than 12 characters, has a character outside `A-Z 0-9 - _ .`, or is one of the reserved names `PL0` and `INDEX` |
 | `NOT SAVED` | you answered N to `REPLACE? (Y/N)` |
 | `NO DISK`, `DISK ERROR: NO DISK` | no drive, no disk in the drive, or the drive is not ready |
 | `NO PROGRAMS` | the disk has no programs to list |
@@ -1074,9 +1088,18 @@ it `NEW` and marks it changed, so that you do not save it over the good
 file by mistake. If a load fails before anything was read, your text is
 untouched.
 
-**RUN/STOP and RESTORE together leave the program.** This is the C64's
-reset to BASIC; running the program again starts with the SQUARE example
-and the text you were editing is lost. Save often.
+**RUN/STOP and RESTORE do nothing together.** On a C64 they normally
+return to BASIC; the program disables RESTORE so that the text you are
+editing cannot be lost that way. RUN/STOP alone still stops a running
+program.
+
+**`DISK ERROR: DISK FULL`, and a strange entry in the list.** When the
+disk fills up during a save, the drive may leave a 0-block file of that
+name that was never closed (shown as `*SEQ` by a directory listing; the
+F3 list leaves it out). The program cannot repair the disk (that needs
+the drive's validate command, which it does not send): on a PC,
+`c1541 pl0.d64 -validate` removes the entry and frees its blocks
+(checked with `c1541` from VICE 3.7.1); or save to another disk.
 
 **A saved program is missing after quitting VICE.** VICE keeps the last
 disk changes in its drive emulation and writes them to the `.d64` file

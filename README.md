@@ -18,17 +18,22 @@ played 2x, disk waits 4x and the 26-second snowflake 5x as fast.*
    with its C64 ROMs (the VICE releases include them; on Debian and
    Ubuntu run `sh tools/install_vice_roms.sh` after installing the
    `vice` package).
-2. Get `pl0.d64`, the disk with the program and 15 examples: download it
-   from the project's showcase site, or build it with `make dist`
-   ([below](#build-and-test)).
+2. Get `pl0.d64`, the disk with the program and 15 examples. For now,
+   build it with `make dist` (it appears in `build/dist/`); that needs
+   cc65 2.19 and VICE's `c1541`, see
+   [installing the tools](docs/architecture/testing.md#installing-the-tools-ubuntu-2404)
+   and [below](#build-and-test). Nothing has been published yet: a
+   published release and the showcase site will carry the downloads.
 3. Start it:
 
    ```sh
    x64sc -autostart pl0.d64
    ```
 
-   Loading takes about 80 seconds at the real speed of a 1541 disk drive;
-   VICE's warp mode (Alt+W) shortens it.
+   Loading takes about 80 seconds of emulated time at the real speed of
+   a 1541 disk drive; VICE normally runs autostart in warp mode (its
+   default `AutostartWarp`), so on a PC the wait is much shorter (under
+   20 seconds in the tests, from VICE's start to the drawn square).
 4. The editor opens with a program that draws a square. Press **F1**.
 
 | Key | |
@@ -113,9 +118,9 @@ source and ideas to try.
 - **A real editor in 40 columns:** status bar, function keys, sideways
   scrolling for long lines, errors that put the cursor on their line,
   a list of programs on the disk, save with replace.
-- **It fits in 64 KB.** The program is 30,302 bytes; the 8 KB program
+- **It fits in 64 KB.** The program is 30,356 bytes; the 8 KB program
   text lives in the RAM under the BASIC ROM, the 8,000-byte bitmap under
-  the KERNAL ROM, and 115 bytes of the main memory are left over
+  the KERNAL ROM, and 61 bytes of the main memory are left over
   ([memory map](docs/architecture/memory-map.md)).
 - **One core, tested twice.** The compiler and interpreter are portable C
   (cc65 for the C64, gcc on a PC). The PC tests run in seconds; the same
@@ -135,13 +140,16 @@ source and ideas to try.
   functions that return values. Numbers have about 9 digits on the C64,
   so results can differ from a PC in the last digits.
 - **It is a C64:** a turn costs a ROM sine and cosine, so drawings take
-  up to 26 seconds; the first load from the disk takes about 80 seconds,
-  and loading an 8 KB program about 40 seconds on a real 1541.
-- **RUN/STOP+RESTORE** leaves the program; the text you were editing is
-  lost. Save often.
-- **No room to grow** without freeing memory first (115 bytes free).
+  up to 26 seconds; the first load from the disk takes about 80 seconds
+  on a real 1541 (VICE warps through it), and loading an 8 KB program
+  about 40 seconds.
+- **RESTORE is disabled** while the program runs, so RUN/STOP+RESTORE
+  cannot drop you into BASIC and lose the text.
+- **No room to grow** without freeing memory first (61 bytes free).
 - **Not yet verified:** a real C64 (all tests use VICE); the CI job that
-  runs the on-target tests on GitHub (no remote repository yet).
+  runs the on-target tests on GitHub and the Pages workflow that
+  publishes the showcase site (neither has ever run: no remote
+  repository yet).
 
 ## How this was built with Superpowers
 
@@ -172,11 +180,15 @@ tells the whole story, with the numbers and what went wrong.
 
 Needs gcc, GNU make and Python 3; for the C64 parts also cc65 and VICE
 (on Ubuntu 24.04: `sudo apt-get install gcc make python3 cc65 vice`,
-then `sh tools/install_vice_roms.sh` for the ROMs).
+then `sh tools/install_vice_roms.sh` for the ROMs). Tested with cc65
+2.19 (the Ubuntu 24.04 package `cc65 2.19-1`): the program leaves only
+61 bytes of main memory free, so another cc65 version may
+produce a bigger program that no longer fits; the link (or `make
+c64-mem`) then fails loudly rather than building a broken program.
 
 | Command | What it does | Time |
 |---|---|---|
-| `make test` | host tests: unit tests, the examples against their goldens, tool self-tests, documentation checks | about 10 s |
+| `make test` | host tests: unit tests, the examples against their goldens, tool self-tests, documentation checks | 10 to 20 s |
 | `make check` | `make test`, then the on-target suite in headless VICE | about 4.5 min |
 | `make check-full` | `make check`, then every example on the C64 twice, with its time | about 8 min |
 | `make dist` | `build/dist/pl0.prg` and `build/dist/pl0.d64`, the disk verified | |

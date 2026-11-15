@@ -502,9 +502,9 @@ Every value is a floating-point number.
 | Format | Commodore BASIC's 5-byte float (32-bit mantissa) | IEEE double |
 | Significant digits | about 9 | about 16 |
 | Largest | 1.70141183E+38 | about 1.8E+308 |
-| Smallest above 0 | about 2.9E-39 | about 2.2E-308 |
+| Smallest above 0 | about 2.9E-39 | smallest normal about 2.2E-308; smaller host values lose precision before becoming 0 |
 | Too large | runtime error `number overflow` | the same |
-| Too small | becomes 0, no error | the same |
+| Too small | becomes 0, no error | the same, after losing precision below 2.2E-308 (checked with `build/pl0host`: halving 1 repeatedly prints `4.9406565E-324` last) |
 
 The arithmetic and the functions on the C64 are the BASIC ROM's, so
 results can differ from the host in the last digits. Both print the same

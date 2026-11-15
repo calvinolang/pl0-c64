@@ -42,7 +42,8 @@ Needs VICE with the ROMs (as `make smoke`) and Pillow (Python 3).
 Common to both: a fresh headless `x64sc` per capture (`-console`, warp:
 warp changes the wall time, never the emulated time), `build/pl0.prg`
 injected into RAM (`-autostartprgmode 1`, as the test harness does: the
-real 80-second autostart from the disk would only add waiting), and a
+real autostart from the disk, about 80 s of emulated time, would only
+add waiting), and a
 copy of `build/pl0.d64` in drive 8, a 1541 with true drive emulation, as
 in `tests/c64_app_examples.sh`. Keys go in through the monitor's `keybuf`.
 Images come from the monitor command `screenshot "FILE" 2` (PNG of the

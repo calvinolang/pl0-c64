@@ -14,8 +14,8 @@ INIT.
 <!-- begin c64_mem.py: generated from build/c64/pl0.map, checked by make c64-mem -->
 | Module | Code | Rodata + data | BSS | HIBSS | LOWBSS | BASICBSS |
 |---|---:|---:|---:|---:|---:|---:|
-| `main.o` | 1,004 | 535 | 4,753 |  | 78 | 8,192 |
-| `editor.o` | 3,596 | 837 |  | 181 |  |  |
+| `main.o` | 1,054 | 545 | 4,753 |  | 78 | 8,192 |
+| `editor.o` | 3,590 | 837 |  | 181 |  |  |
 | `edscreen_s.o` | 792 |  |  | 279 |  |  |
 | `textbuf.o` | 1,120 |  |  |  |  |  |
 | `disk.o` | 612 | 111 |  |  | 55 |  |
@@ -35,27 +35,64 @@ INIT.
 | `io_c64.o` | 384 | 3 | 25 |  |  |  |
 | `io_c64_s.o` | 390 | 10 | 5 |  |  |  |
 | cc65 runtime + libc (95 modules) | 2,306 | 69 | 1 |  |  |  |
-| **total** | 27,786 | 2,514 | 6,486 | 3,071 | 174 | 8,192 |
+| **total** | 27,830 | 2,524 | 6,486 | 3,071 | 174 | 8,192 |
 
 | Area | Range | Bytes | Notes |
 |---|---|---:|---|
 | BASIC stub + startup | `$0801-$083F` | 63 |  |
-| CODE | `$0840-$7464` | 27,685 |  |
-| RODATA + DATA + INIT | `$7465-$7E36` | 2,514 |  |
-| BSS | `$7E37-$978C` | 6,486 | ONCE (run-once startup code) lies under its start |
-| **free below the C stack** | `$978D-$97FF` | 115 | BSS may grow up to $97FF |
+| CODE | `$0840-$7490` | 27,729 |  |
+| RODATA + DATA + INIT | `$7491-$7E6C` | 2,524 |  |
+| BSS | `$7E6D-$97C2` | 6,486 | ONCE (run-once startup code) lies under its start |
+| **free below the C stack** | `$97C3-$97FF` | 61 | BSS may grow up to $97FF |
 | C stack | `$9800-$9FFF` | 2,048 | cc65 parameter stack |
 | BASICBSS | `$A000-$BFFF` | 8,192 | the source buffer, under the BASIC ROM |
 | HIBSS | `$C000-$CBFE` | 3,071 | 3,071 of 3,072 used, 1 free |
 | LOWBSS | `$033C-$03E9` | 174 | 174 of 192 used, 18 free (the cassette buffer) |
 
-Image `$0801-$7E5C` (to the end of ONCE): 30,302 bytes in `pl0.prg` with the 2-byte load address.
+Image `$0801-$7E92` (to the end of ONCE): 30,356 bytes in `pl0.prg` with the 2-byte load address.
 <!-- end c64_mem.py -->
 
-The sections below are the history: how the map got here, measured at
-each task.
+## The stacks (measured)
 
-# C64 memory map of the core (Task 12b)
+The compiler is recursive (expressions, statements, procedure blocks);
+its depth is bounded by `MAX_EXPR_NEST` (16), `MAX_STMT_NEST` (16) and
+`MAX_NEST` (4) in `src/core/limits.h`, which exist to protect the two
+stacks: the 6502 hardware stack (`$0100-$01FF`, 256 bytes, return
+addresses and the ROM's own use) and the cc65 C stack (`$9800-$9FFF`,
+2,048 bytes, parameters and locals).
+
+Measured on the C64 (VICE) by case (i) of `tests/c64/core_check.c`,
+part of `make c64-core`: a program with every limit at its maximum (4
+nested procedures, 16 nested `begin`/`if`/`while`, 16 parentheses around
+a number literal in the innermost one; one more of any gives `nested too
+deeply`), compiled and run from the 8 KB source buffer like any program.
+Method: before the case, `stack_fill` writes `$AA` to the unused part of
+both stacks (the hardware stack from `$0100` up to 32 bytes below the
+stack pointer, the C stack from `$9800` up to 64 bytes below cc65's
+`sp`); after it, `stack_scan` finds the lowest byte that is no longer
+`$AA` in each. The results stay in two globals, and `make c64-core`
+prints them from the RAM snapshot (`build/vice/core_check/snap1.bin`)
+through the labels in `build/c64/core_check.lbl`:
+
+    c64-core: case i (the nesting limits): 75 of 256 bytes of the 6502 stack free, 460 of 2048 bytes of the C stack used
+
+(2026-11-15, cc65 2.19; 75 or 76 from run to run, depending on where the
+jiffy interrupt falls). So the binding constraint is the 256-byte
+hardware stack, with 75 bytes to spare; the C stack uses under a quarter
+of its 2 KB. The program itself (`main` -> `run_program` ->
+`pl0_compile`) sits a few return addresses deeper than `core_check`'s
+`main` -> `run` -> `pl0_compile`, which the margin covers. The case
+fails `make c64-core` (a `FAIL stack` line) if fewer than 32 bytes of
+the hardware stack stay free or more than 1,024 bytes of the C stack are
+used. A stored `$AA` at the deepest point would hide a byte or two.
+
+## History (superseded numbers)
+
+The sections below are the history: how the map got here, measured at
+each task. Their numbers are superseded by the generated tables above;
+do not quote them for the current program.
+
+### The core (Task 12b)
 
 Measured from the ld65 map of `build/c64/core_check.prg` (`make c64-core`):
 all of `src/core` (lexer, compiler, VM, turtle, clipper, errors) with the
@@ -64,7 +101,7 @@ C64 layers `num_c64`, `gfx_c64`, `io_c64`, linked with
 `tests/c64/core_check.c` and `tests/c64/out.c`. The editor, picker, disk
 code and main program (Tasks 13-16) are not in it yet.
 
-## Per-module sizes (bytes)
+#### Per-module sizes (bytes)
 
 | Module | Code | Rodata/data | BSS | Notes |
 |---|---:|---:|---:|---|
@@ -85,7 +122,7 @@ code and main program (Tasks 13-16) are not in it yet.
 | `Program prog` (in the driver; the app needs it too) | | | 4,741 | `code[768]` 3,072 + `consts[128]` 640 + `strings` 1,024 + counters |
 | test only: `core_check.c` + `out.c` | 917 | 964 | 80 | includes the embedded square source |
 
-## Segments and limits
+#### Segments and limits
 
 | Area | Range | Bytes | Content |
 |---|---|---:|---|
@@ -110,7 +147,7 @@ about **8.0 KB** for the editor, picker, disk access, run flow, help texts
 and `main` (the spike estimated 4.8-6.5 KB for these), plus the unused
 3 KB of `HIBSS`.
 
-## Placement decisions
+#### Placement decisions
 
 - The source buffer is the only thing in `BASICBSS` (`$A000`): the
   driver declares `static char source[MAX_SOURCE]` under
@@ -130,7 +167,7 @@ and `main` (the spike estimated 4.8-6.5 KB for these), plus the unused
 - `HIBSS` and the colour matrix: `$C000-$CBFF` is free; `crt0` does not
   clear it.
 
-## The program with the editor (Task 14)
+### The program with the editor (Task 14)
 
 Measured from `build/c64/pl0.map` (`make c64`): `main.c`, the editor
 (`editor.c`, `edscreen.s`, `textbuf.c`), all of `src/core` and the C64
@@ -170,7 +207,7 @@ RAM first. The options, measured or sized here:
 - Put Task 15's own variables in `HIBSS` too, and keep long texts (help
   page, example descriptions) on the disk.
 
-## Task 15: step 0 and the final program
+### Task 15: step 0 and the final program
 
 **Step 0** (commit `874bd94`, before any Task 15 feature code):
 
@@ -220,7 +257,16 @@ RAM first. The options, measured or sized here:
 - Left for Tasks 16-18 (after the review fixes: message buffer, read
   errors, input after a drawing): 115 bytes of low RAM, 18 of LOWBSS, 1
   of HIBSS. The module table above is from before those fixes.
-  Further room, if needed: the 2 KB C stack was never measured (stack
-  depth of the compiler's recursion), the help page (~690 bytes), and the
-  rest of `$02A7-$02FF` (the test handshake uses `$02A7/$02A8` only in
-  check programs).
+  Further room, if needed: the C stack (2 KB, of which the deepest
+  compile uses 460 bytes: [measured](#the-stacks-measured); shrinking it
+  is possible but leaves less margin for future recursion), the help
+  page (~690 bytes), and the rest of `$02A7-$02FF` (the test handshake
+  uses `$02A7/$02A8` only in check programs).
+
+### The final review's fixes
+
+The reserved save names (`PL0`, `INDEX`) and the disabled RESTORE cost
+60 bytes of code in `main.c`; removing the unused `editor_modified()`
+gave 6 back. BSS end `$978C` -> `$97C2`: 61 bytes free below `$97FF`
+(was 115); LOWBSS and HIBSS unchanged. The generated tables above are
+current.
