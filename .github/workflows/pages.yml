@@ -24,11 +24,18 @@ jobs:
         # cc65 builds the program; c1541 (in the vice package, no ROMs
         # needed) writes the disk image
         run: sudo apt-get update && sudo apt-get install -y gcc make python3 cc65 vice
+      - name: Configure Pages
+        # needs Settings > Pages > Source: GitHub Actions, set once by hand
+        # (the action's `enablement` input needs an admin token, which the
+        # workflow's GITHUB_TOKEN is not)
+        uses: actions/configure-pages@v5
       - name: Build the site
-        run: >-
-          make dist web
-          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
-          REPO_BRANCH="${{ github.event.repository.default_branch }}"
+        env:
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          REPO_BRANCH: ${{ github.event.repository.default_branch }}
+        run: make dist web REPO_URL="$REPO_URL" REPO_BRANCH="$REPO_BRANCH"
+      - name: No placeholder links left
+        run: "! grep -n 'github.com/OWNER/REPO' build/site/index.html"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/site

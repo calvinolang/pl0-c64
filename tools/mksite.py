@@ -25,6 +25,12 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BEGIN, END = "<!-- gallery:begin -->", "<!-- gallery:end -->"
+# The branch in the repository links of the COMMITTED page (--write and
+# --check). It must match the hrefs written in web/index.html next to the
+# placeholder REPO_URL; the real branch is set only in the built copy
+# (make web REPO_BRANCH=..., from the Pages workflow), so changing this
+# means running --write to rewrite the committed links.
+COMMITTED_BRANCH = "main"
 
 
 def index():
@@ -49,7 +55,7 @@ def gallery():
   <figcaption><strong>{name.upper()}</strong> <span class="kind">{"drawing" if drawing else "text"}</span><br>{html.escape(desc)}</figcaption>
   <details>
     <summary>Source ({nlines} lines)</summary>
-    <pre><code>{html.escape(src)}</code></pre>
+    <pre tabindex="0"><code>{html.escape(src)}</code></pre>
   </details>
 </figure>''')
     parts.append(END)
@@ -82,7 +88,7 @@ def main(argv):
     mode = argv[0] if argv else ""
     if mode == "--repo-url":
         url, rest = argv[1], argv[2:]
-        branch = "main"
+        branch = COMMITTED_BRANCH
         if rest[:1] == ["--branch"]:
             branch, rest = rest[1], rest[2:]
         path = rest[0]
@@ -93,7 +99,7 @@ def main(argv):
         sys.exit(__doc__)
     path = argv[1] if len(argv) > 1 else os.path.join(ROOT, "web/index.html")
     page = open(path).read()
-    new = repo_links(regenerate(page), meta_url(page), "main")
+    new = repo_links(regenerate(page), meta_url(page), COMMITTED_BRANCH)
     if mode == "--write":
         if new != page:
             open(path, "w").write(new)

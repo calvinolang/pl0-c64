@@ -70,8 +70,8 @@ previous video frame is complete; there the stopwatch (`sw`) is read and
 the screenshot taken. A frame's duration in the GIF is its measured
 stopwatch interval, so interrupts that the program masks while it plots
 do not distort the timing. Parts of the story are played faster: the
-disk waits 2x and the Koch run (26 s on the C64) 4x; the page's caption
-says so. Identical consecutive frames are merged; a frame whose border
+cursor moves 2x, the disk waits 4x and the Koch run (26 s on the C64)
+5x; the page's caption says so. Identical consecutive frames are merged; a frame whose border
 has two colours (the program switched between the text and the bitmap
 screen while VICE drew it: real, but 20 ms on the C64 and 100 ms in the
 GIF) is dropped. The title card is a C64 text screen drawn with the
@@ -85,7 +85,8 @@ frames as they are in the GIF, for review).
 - `web/index.html` and `web/style.css`: one static page, no scripts, no
   external fonts or stylesheets; light and dark from the system setting.
   Sections: pitch, the demo GIF, the 15 examples (capture, name,
-  description from INDEX, source in a `<details>` block), the editor's
+  description from INDEX, source in a `<details>` block whose `<pre>` has
+  `tabindex="0"` so it scrolls from the keyboard), the editor's
   screens, run it yourself (downloads, the VICE commands, the keys), why
   there is no emulator in the browser, documentation links, licences.
 - The gallery is generated (`tools/mksite.py --write`, between
@@ -102,17 +103,40 @@ frames as they are in the GIF, for review).
   and the default branch.
 - `make web` (after `make dist`) builds `build/site/`: the page, the
   stylesheet, `img/` (the media), `dl/pl0.prg` and `dl/pl0.d64`,
-  `LICENSE.txt`; then `tools/check_site.py build/site` checks every
-  `src`/`href` (local targets exist and are what their extension says,
-  `#fragments` exist, no external resources, no scripts, every image has
-  alt text and a size) and prints the size of each file and the total.
+  `LICENSE.txt`; then `tools/check_site.py build/site` checks it and
+  prints the size of each file and the total:
+  - every local `src`/`href`, `url()` in the stylesheet, `<style>` blocks
+    and `style=` attributes exists and is what its extension says;
+    `#fragments` exist; a link starting with `/` fails (the site lives
+    under `/<repo>/` on Pages);
+  - no external resources (only `<a>` may leave the site), no scripts,
+    no `srcset` or `<source>`; every image has alt text and a size;
+  - the page references the demo GIF, a capture for every INDEX entry,
+    the five UI screens, both downloads and `LICENSE.txt`, and has at
+    least one `data-repo-path` link (an empty page fails);
+  - size caps (constants at the top of the checker): each GIF at most
+    2.5 MB, each PNG 300 KB, each HTML/CSS/text file 200 KB, all PNG and
+    GIF files together 6 MB, the whole page 8 MiB;
+  - a WARNING when the placeholder `https://github.com/OWNER/REPO` is
+    still in the page (`make web` without `REPO_URL`).
   `make test` runs the same checker on the committed sources
-  (`--source`: `img/` read from `docs/img/c64/`; `dl/` only the two
-  product names).
+  (`--source`: `img/` read from `docs/img/c64/`, `LICENSE.txt` from
+  `LICENSE`, `dl/` checked by name against the two files `make web`
+  copies) and `tools/test_check_site.py`, which builds a good site in a
+  temporary directory and checks that it passes and that 16 broken
+  variants fail (empty page, missing gallery image or download
+  reference, a download typo, broken `#fragment`, missing file, external
+  stylesheet, leading `/`, oversize GIF and PNG, script, srcset,
+  external or missing `url()`, no repository link).
 - `.github/workflows/pages.yml`: on a push to the default branch, installs
-  cc65 and VICE (for `c1541`; no ROMs), runs `make dist web` and deploys
-  `build/site` with `actions/upload-pages-artifact` and
-  `actions/deploy-pages`. The media are not regenerated there.
+  cc65 and VICE (for `c1541`; no ROMs), runs `actions/configure-pages`,
+  `make dist web` with `REPO_URL`/`REPO_BRANCH` from the environment
+  (never interpolated into the script), fails if the placeholder URL is
+  still in the built page, and deploys `build/site` with
+  `actions/upload-pages-artifact` and `actions/deploy-pages`. The media
+  are not regenerated there. One manual step, once, in the repository:
+  Settings > Pages > Source: GitHub Actions (the workflow's token
+  cannot enable Pages itself).
 
 ## Licensing
 

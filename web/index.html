@@ -52,7 +52,7 @@
   <figcaption><strong>SQUARE</strong> <span class="kind">drawing</span><br>a square</figcaption>
   <details>
     <summary>Source (19 lines)</summary>
-    <pre><code>{ a square }
+    <pre tabindex="0"><code>{ a square }
 { The turtle starts in the middle
   of the screen, facing up. Four
   times: go forward, turn right.
@@ -79,7 +79,7 @@ end.
   <figcaption><strong>POLYGON</strong> <span class="kind">drawing</span><br>regular polygon</figcaption>
   <details>
     <summary>Source (23 lines)</summary>
-    <pre><code>{ regular polygon }
+    <pre tabindex="0"><code>{ regular polygon }
 { n equal sides, and the turtle
   turns 360/n degrees at each
   corner, 360 in total. The side
@@ -110,7 +110,7 @@ end.
   <figcaption><strong>STAR</strong> <span class="kind">drawing</span><br>star polygon</figcaption>
   <details>
     <summary>Source (24 lines)</summary>
-    <pre><code>{ star polygon }
+    <pre tabindex="0"><code>{ star polygon }
 { Join every k-th of n points on a
   circle. The turtle turns 360*k/n
   degrees at each point; after n
@@ -142,7 +142,7 @@ end.
   <figcaption><strong>SPIRAL</strong> <span class="kind">drawing</span><br>square spiral</figcaption>
   <details>
     <summary>Source (18 lines)</summary>
-    <pre><code>{ square spiral }
+    <pre tabindex="0"><code>{ square spiral }
 { Like a square, but every side is
   a bit longer than the one before,
   and the turtle turns 92 degrees
@@ -168,7 +168,7 @@ end.
   <figcaption><strong>ROSE</strong> <span class="kind">drawing</span><br>rose curve</figcaption>
   <details>
     <summary>Source (22 lines)</summary>
-    <pre><code>{ rose curve }
+    <pre tabindex="0"><code>{ rose curve }
 { A point at angle t and distance
   r = 95*cos(k*t) from the middle
   (polar coordinates) draws a rose
@@ -198,7 +198,7 @@ end.
   <figcaption><strong>SINE</strong> <span class="kind">drawing</span><br>plot of sin(x)</figcaption>
   <details>
     <summary>Source (37 lines)</summary>
-    <pre><code>{ plot of sin(x) }
+    <pre tabindex="0"><code>{ plot of sin(x) }
 { x runs from -2*pi to 2*pi. Each
   point is scaled to the screen:
   sx pixels per unit along x and
@@ -243,7 +243,7 @@ end.
   <figcaption><strong>LISSAJOUS</strong> <span class="kind">drawing</span><br>Lissajous curve</figcaption>
   <details>
     <summary>Source (18 lines)</summary>
-    <pre><code>{ Lissajous curve }
+    <pre tabindex="0"><code>{ Lissajous curve }
 { x and y swing like two pendulums
   with frequencies a and b:
   x = 150*sin(a*t), y = 90*sin(b*t),
@@ -269,7 +269,7 @@ end.
   <figcaption><strong>FACTORIAL</strong> <span class="kind">text</span><br>factorials 1! to 12!</figcaption>
   <details>
     <summary>Source (28 lines)</summary>
-    <pre><code>{ factorials 1! to 12! }
+    <pre tabindex="0"><code>{ factorials 1! to 12! }
 { n! = 1*2*...*n. fact(k) calls
   itself with k-1 until it reaches
   0! = 1 (recursion). The result
@@ -305,7 +305,7 @@ end.
   <figcaption><strong>GCD</strong> <span class="kind">text</span><br>greatest common divisor</figcaption>
   <details>
     <summary>Source (29 lines)</summary>
-    <pre><code>{ greatest common divisor }
+    <pre tabindex="0"><code>{ greatest common divisor }
 { Euclid: gcd(a, b) = gcd(b, r),
   r = remainder of a/b, until r
   is 0. Each number printed is the
@@ -342,7 +342,7 @@ end.
   <figcaption><strong>PRIMES</strong> <span class="kind">text</span><br>prime numbers to 200</figcaption>
   <details>
     <summary>Source (37 lines)</summary>
-    <pre><code>{ prime numbers to 200 }
+    <pre tabindex="0"><code>{ prime numbers to 200 }
 { n is prime if no d with d*d &lt;= n
   divides it. d divides n when n/d
   is a whole number: int(n/d) = n/d.
@@ -387,7 +387,7 @@ end.
   <figcaption><strong>NEWTON</strong> <span class="kind">text</span><br>square root by Newton</figcaption>
   <details>
     <summary>Source (21 lines)</summary>
-    <pre><code>{ square root by Newton }
+    <pre tabindex="0"><code>{ square root by Newton }
 { Start with a guess x and replace
   it by the average of x and a/x.
   The number of correct digits
@@ -416,7 +416,7 @@ end.
   <figcaption><strong>PI</strong> <span class="kind">text</span><br>pi from two series</figcaption>
   <details>
     <summary>Source (39 lines)</summary>
-    <pre><code>{ pi from two series }
+    <pre tabindex="0"><code>{ pi from two series }
 { Leibniz: pi/4 = 1-1/3+1/5-1/7...
   is simple but slow: 1000 terms
   give 3 digits. Machin: pi/4 =
@@ -463,7 +463,7 @@ end.
   <figcaption><strong>KOCH</strong> <span class="kind">drawing</span><br>Koch snowflake</figcaption>
   <details>
     <summary>Source (36 lines)</summary>
-    <pre><code>{ Koch snowflake }
+    <pre tabindex="0"><code>{ Koch snowflake }
 { A side of depth d is four sides
   of depth d-1, a third as long,
   with a bump in the middle. Depth
@@ -507,7 +507,7 @@ end.
   <figcaption><strong>SIERPINSKI</strong> <span class="kind">drawing</span><br>Sierpinski triangle</figcaption>
   <details>
     <summary>Source (28 lines)</summary>
-    <pre><code>{ Sierpinski triangle }
+    <pre tabindex="0"><code>{ Sierpinski triangle }
 { The triangle is three half-size
   copies of itself, and so on.
   At depth 0 one triangle is drawn
@@ -543,7 +543,7 @@ call tri(-108, -94, 216, depth).
   <figcaption><strong>TREE</strong> <span class="kind">drawing</span><br>fractal tree</figcaption>
   <details>
     <summary>Source (28 lines)</summary>
-    <pre><code>{ fractal tree }
+    <pre tabindex="0"><code>{ fractal tree }
 { A tree is a trunk with two
   smaller trees on top, one turned
   left and one turned right. After
