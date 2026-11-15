@@ -95,7 +95,7 @@ $(BUILD)/gfx_ref: tests/c64/gfx_ref.c tests/c64/gfx_lines.h src/core/clip.c src/
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tests/c64/gfx_ref.c src/core/clip.c src/host/gfx_host.c
 
-c64-tests: $(C64_BUILD)/num_check.prg $(C64_BUILD)/gfx_check.prg
+c64-tests: $(C64_BUILD)/num_check.prg $(C64_BUILD)/gfx_check.prg $(C64_BUILD)/io_check.prg
 
 c64-num: $(C64_BUILD)/num_check.prg
 	sh tests/vice_run.sh $(C64_BUILD)/num_check.prg PASS $(C64_NUM_CYCLES) FAIL
@@ -105,6 +105,20 @@ c64-gfx: $(C64_BUILD)/gfx_check.prg $(BUILD)/gfx_ref
 	sh tests/vice_run.sh --snap \
 	  --check "python3 tools/check_bitmap.py --ref $(C64_BUILD)/gfx_ref --lbl $(C64_BUILD)/gfx_check.lbl" \
 	  $(C64_BUILD)/gfx_check.prg PASS $(C64_GFX_CYCLES) FAIL
+
+# keys for io_check.c, typed with the monitor `keybuf` command when the
+# program shows the line feedN (\n = RETURN, \x14 = DEL, \x03 = RUN/STOP);
+# feed9 forces the keyboard matrix: CIA1 port B bit 7 output low
+c64-io: $(C64_BUILD)/io_check.prg
+	sh tests/vice_run.sh --snap --check "python3 tools/check_io.py" \
+	  --on feed1 'keybuf 12.5\n' --on feed2 'keybuf -3\n' \
+	  --on feed3 'keybuf abc\n' --on feed4 'keybuf \n' \
+	  --on feed5 'keybuf 1\x147\n' --on feed6 'keybuf -\n' \
+	  --on feed7 'keybuf 4\x03' --on feed10 'keybuf 1111111111111111111111111\n' \
+	  --on feed11 'keybuf 1e3\n' --on feed12 'keybuf -2.5E-2\n' \
+	  --on feed8 'keybuf \x03' \
+	  --on feed9 'bank io' --on feed9 '> dc03 80' --on feed9 '> dc01 7f' --on feed9 'bank ram' \
+	  $(C64_BUILD)/io_check.prg PASS $(C64_IO_CYCLES) FAIL
 
 clean:
 	$(RM) -r $(BUILD)
