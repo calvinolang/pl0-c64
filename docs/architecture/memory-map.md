@@ -112,3 +112,54 @@ RAM first. The options, measured or sized here:
   code; for example behind a C64-only define, the host tests keep them).
 - Put Task 15's own variables in `HIBSS` too, and keep long texts (help
   page, example descriptions) on the disk.
+
+## Task 15: step 0 and the final program
+
+**Step 0** (commit `6a48e7c`, before any Task 15 feature code):
+
+- The VM stack (`stack[512]`, 2,560 bytes) moved to `HIBSS` on cc65
+  (`src/core/vm.c`; it needs no clearing).
+- The C64 build leaves out the textbuf functions it does not call (line
+  queries, vertical moves, home/end, goto, `tb_len`, `tb_cursor`,
+  `tb_set_cursor`): `TB_NO_LINE_SCANS` is defined for cc65 in
+  `textbuf.h` unless `TB_LINE_SCANS` is; the host tests keep them all.
+- Result: BSS end `$970C` -> `$89BD`, **3,650 bytes free** below `$97FF`
+  (was 243); HIBSS 3,020 of 3,072 bytes used.
+
+**Then** (all of Task 15 linked; `make c64-mem`):
+
+| Module | Code | Rodata | BSS | HIBSS | LOWBSS | Notes |
+|---|---:|---:|---:|---:|---:|---|
+| `main.c` | 989 | 535 | 4,753 | | 78 | run flow, save prompt, open; `big` = Program or picker list |
+| `editor.c` | 3,596 | 837 | | 181 | | help page ~690 of the rodata |
+| `edscreen.s` | 792 | | | 279 | | |
+| `textbuf.c` | 1,120 | | | | | |
+| `disk.c` | 599 | 99 | | | 52 | load, save, messages |
+| `disk.s` | 575 | | | | 14 | KERNAL calls (C version: ~1,100 bytes) |
+| `picker.c` | 567 | 69 | | | 8 | screen and keys |
+| `picker.s` | 546 | 18 | | 51 | 19 | INDEX and directory parsing, sorted insert (C version: ~750) |
+| `vm.c` | 2,426 | | 26 | 2,560 | | the stack in HIBSS |
+
+| Area | Range | Bytes |
+|---|---|---:|
+| CODE | `$0840-$73FF` | 27,584 |
+| RODATA + DATA + INIT | `$7400-$7DC5` | |
+| BSS | `$7DC6-$9718` | 6,483 |
+| **free below the C stack** | **`$9719-$97FF`** | **231** |
+| HIBSS | `$C000-$CBFE` | 3,071 of 3,072 (1 free) |
+| LOWBSS (new) | `$033C-$03E6` | 171 of 192 (21 free) |
+
+- **LOWBSS** is a new BSS-only area in `pl0-c64.cfg`: the KERNAL's
+  cassette buffer `$033C-$03FB`, unused because the program never touches
+  tape (disk I/O does not use it). crt0 does not clear it; `main` clears
+  it with HIBSS. It holds the small variables of `main.c`, `disk.{c,s}`
+  and `picker.{c,s}`.
+- The picker list reuses the idle `Program` (a union in `main.c`, 118
+  entries of 40 bytes); see editor.md for the ownership rule.
+- Without the C-to-assembly moves (disk, picker parsing) and LOWBSS the
+  program overflowed `$97FF` by 988 bytes.
+- Left for Tasks 16-18: 231 bytes of low RAM, 21 of LOWBSS, 1 of HIBSS.
+  Further room, if needed: the 2 KB C stack was never measured (stack
+  depth of the compiler's recursion), the help page (~690 bytes), and the
+  rest of `$02A7-$02FF` (the test handshake uses `$02A7/$02A8` only in
+  check programs).

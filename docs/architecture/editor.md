@@ -1,4 +1,4 @@
-# The C64 editor (Task 14)
+# The C64 editor (Task 14), run flow, picker and disk (Task 15)
 
 `src/c64/editor.c` (logic, keys), `src/c64/edscreen.s` (gap buffer scans
 and drawing), `src/c64/main.c` (start-up and the F1/F3/F5 hooks).
@@ -41,9 +41,10 @@ ERROR line 13: undeclared name           row 24: key bar or message
 | CRSR keys | move; up/down keep the column of the first vertical move |
 | HOME / CLR (SHIFT+HOME) | start / end of the line |
 | DEL / INST (SHIFT+DEL) | delete left / delete right (join lines at the ends) |
-| F1 | compile (Task 15: and run); an error comes back with the cursor on its line |
+| F1 | compile and run (below); an error comes back with the cursor on its line |
 | F2 (SHIFT+F1) | new program; asks `DISCARD PROGRAM? (Y/N)` if the text is modified and not empty (N or RUN/STOP keeps it) |
-| F3 / F5 | open / save (Task 15; now `NOT YET`) |
+| F3 | open a program from the disk (the picker, below); asks `DISCARD PROGRAM? (Y/N)` first like F2 |
+| F5 | save to the disk (below) |
 | F7 | help page; any key returns |
 | anything else | ignored (colours, graphics, RVS, RUN/STOP, F4/F6/F8) |
 
@@ -86,3 +87,100 @@ run) are dropped.
   40 cycles per character before the cursor: 0.3 s for 8 KB.
 - Memory: the editor's variables are in `HIBSS` (`$C000-$CBFF`), which
   `main` clears (crt0 does not); see `memory-map.md`.
+
+## Run flow (F1, Task 15, `src/c64/main.c`)
+
+- F1 compiles the text (`pl0_compile` on `tb_text`). A compile error goes
+  back to the editor at once: message on row 24, cursor on its line.
+- Otherwise the text screen is cleared and the program runs; its output
+  scrolls. The first turtle statement switches to the bitmap and the run
+  goes on there (output still goes to the hidden text screen).
+- RUN/STOP stops a running program: the runtime error `stopped`.
+- At the end:
+  - runtime error (also `stopped`): the bitmap is switched off, the text
+    screen shows the output, then `ERROR line N: message` and
+    `-- PRESS ANY KEY --` on new lines; any key returns to the editor with
+    the error on row 24 and the cursor on that line;
+  - normal end without a drawing: `-- PRESS ANY KEY --` on a new line;
+    any key returns;
+  - normal end with a drawing: the drawing stays (no overlay); SPACE
+    toggles between the drawing and the text view, which ends with
+    `-- SPACE: DRAWING  ANY KEY: EDITOR --`; any other key returns. The
+    toggle is offered after the run has ended (not while it runs).
+  Keys typed during the run are dropped before the prompt. The help page
+  (F7) says this too.
+- Returning: `gfx_close`, then the editor redraws everything. A run never
+  changes the text or the editor state (checked in `tests/vice_app.sh`:
+  the buffer equals the loaded example byte for byte after a run).
+- A program that reads input (`?x`) after it has drawn reads it on the
+  hidden text screen; no example does that.
+
+## Disk (Task 15, `src/c64/disk.{c,s}`)
+
+- Device: the one the program was loaded from (`$BA`), else 8.
+- Program files are SEQ files with the program text as raw ASCII bytes,
+  `\n` line ends, so a PC reads them with `c1541 IMAGE -read name,s`.
+  Names: 1-12 of `A-Z 0-9 - _ .`, no extension on the disk (`FACTORIAL`,
+  not `FACTORIAL.PL0`). These are the same bytes in ASCII and PETSCII.
+- KERNAL calls only (SETLFS, SETNAM, OPEN, CHKIN, CHKOUT, CHRIN, CHROUT,
+  READST, CLRCHN, CLOSE), in assembly. Channel 15 gives the drive status
+  after every open, command and close. A missing drive (KERNAL error 5),
+  DOS 74 DRIVE NOT READY and DOS 21 READ ERROR (what a 1541 without a
+  disk answers) all show as `NO DISK`.
+- Load: two passes. The first only counts (and stops once the file is too
+  big: `FILE TOO BIG`, nothing changes); the second stores into the buffer
+  under the BASIC ROM. CR, LF and CR LF become one `\n`, a tab a space,
+  other bytes outside `$20-$7E` are dropped. If the second pass fails, the
+  buffer holds the part that was read, named NEW and marked modified.
+  Cursor on line 1, column 1, not modified, name set.
+- Save: opening `NAME,S,W` answers 63 FILE EXISTS before anything is
+  written; the program then asks. A replace scratches the file (`S0:NAME`)
+  and writes it again (the 1541's `@0:` save-with-replace has a known
+  bug). After the close the status is read: `DISK ERROR: FILE NOT FOUND`
+  (62), `FILE EXISTS` (63), `DISK FULL` (72), `NO DISK`, other codes
+  `DISK ERROR nn`.
+
+## Save prompt (F5)
+
+Row 24 shows `SAVE AS: NAME` with the current name and a plain (not
+reversed) cell as the cursor. Letters (typed upper case either way),
+digits and punctuation are taken, up to 16 characters; DEL deletes;
+RETURN saves; RUN/STOP cancels. The name is checked then: empty, longer
+than 12 or any character outside `A-Z 0-9 - _ .` gives `BAD NAME` and
+writes nothing. An existing file asks `REPLACE? (Y/N)` (N or RUN/STOP:
+`NOT SAVED`). Success: `SAVED NAME`, the program takes the name, not
+modified.
+
+## Picker (F3, `src/c64/picker.{c,s}`)
+
+```
+ OPEN PROGRAM                            row 0 (reverse)
+                                         row 1
+ SQUARE       a square                   rows 2-22: 21 entries
+ POLYGON      regular polygon            (the selected one reversed)
+ ...
+ BIG
+ TEST
+                                         row 23
+ RETURN open  RUN/STOP back  CRSR move   row 24 (reverse)
+```
+
+- Order: the examples from `INDEX`, in its order (the demo order of
+  `tools/mkdisk.py`), then every other SEQ file with a valid name, sorted
+  by name, without a description (reading each file's first comment
+  would take a file open per entry: seconds on a 1541). `INDEX`, the
+  `PL0` program and names the program could not save are not listed; a
+  file of the user's own named like an example is listed once, in the
+  example's place. A disk without INDEX lists only the SEQ files.
+- CRSR down/up move and stop at the ends (no wrap); the list scrolls one
+  entry at a time. Held keys repeat. RETURN loads the entry; RUN/STOP goes
+  back with nothing changed.
+- `READING DISK...` and `LOADING NAME` show on row 24 while the drive
+  works. No disk: back in the editor with `NO DISK`; no programs:
+  `NO PROGRAMS`.
+- Memory: the list (at most 118 entries of 40 bytes, kept as the screen
+  rows they show) lives in the `Program` memory, idle outside a compile
+  and run (`main.c`: a union; only `open_program` uses the list and only
+  `run_program` the program, both called one at a time from the main
+  loop). A 1541 directory holds at most 144 files; entries past 118 are
+  left out.
