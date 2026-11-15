@@ -12,6 +12,7 @@
 #                     TRIGGER (key injection, no quotes around the keys:
 #                     VICE would type them: --on feed1 'keybuf 12.5\n');
 #                     repeatable, fired in order (see tools/vice_screen.py)
+#   --vice ARG        pass ARG to x64sc (repeatable: --vice -8 --vice d.d64)
 #   --snap            RAM snapshot handshake ($02A7/$02A8): OUTDIR/snapN.bin
 #                     holds all 64 KB of RAM at step N (tests/c64/gfx_check.c)
 #   --check CMD       after the screen check passed, run `CMD OUTDIR` (word
@@ -31,6 +32,7 @@ for a in "$@"; do                  # the first positional argument is the prg
   if [ $skip -gt 0 ]; then skip=$((skip - 1)); continue; fi
   case $a in
     --on) skip=2 ;;
+    --vice) skip=1 ;;
     --snap) ;;
     *) npos=$((npos + 1))
        [ $npos -eq 1 ] && prg=$a

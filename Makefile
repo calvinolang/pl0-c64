@@ -10,7 +10,7 @@ TEST_SRC := $(wildcard tests/test_*.c)
 TEST_BIN := $(patsubst tests/%.c,$(BUILD)/%,$(TEST_SRC))
 HDRS     := $(wildcard src/*/*.h tests/*.h)
 
-.PHONY: test host examples c64 c64-editor c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples clean
+.PHONY: test host examples c64 disk c64-disk c64-editor c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples clean
 
 test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
@@ -216,6 +216,21 @@ $(BUILD)/pl0.prg: $(C64_BUILD)/pl0.prg
 # the editor on the target: tests/vice_smoke.sh (about 1 minute)
 c64-editor: $(BUILD)/pl0.prg $(C64_BUILD)/pl0_tiny.prg
 	sh tests/vice_smoke.sh
+
+# ---- the disk image (Task 15): build/pl0.d64 with the program (PL0, PRG),
+# INDEX and the examples as SEQ files (tools/mkdisk.py builds it with c1541
+# and verifies it by reading every file back)
+disk: $(BUILD)/pl0.d64
+
+$(BUILD)/pl0.d64: $(BUILD)/pl0.prg tools/mkdisk.py $(wildcard examples/*.pl0)
+	python3 tools/mkdisk.py $(BUILD)/pl0.prg examples $@
+
+# the KERNAL disk primitives (src/c64/disk.c) on a copy of the disk image
+$(C64_BUILD)/disk_check.prg: $(C64_BUILD)/disk_check.o $(C64_BUILD)/disk.o $(C64_BUILD)/textbuf.o $(OUT_C64_OBJ) $(C64_CFG)
+	$(call c64_link,disk_check,$(C64_BUILD)/disk_check.o $(C64_BUILD)/disk.o $(C64_BUILD)/textbuf.o $(OUT_C64_OBJ))
+
+c64-disk: $(C64_BUILD)/disk_check.prg $(BUILD)/pl0.d64
+	sh tests/vice_disk.sh
 
 # all examples, one after the other, and a table of the C64 run times
 c64-examples: host

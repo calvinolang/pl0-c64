@@ -24,6 +24,8 @@ Options (all may be repeated or combined):
                      would type them). Each --on fires
                      once, in the given order: one fires only after all
                      earlier ones have fired.
+  --vice ARG         one more x64sc command line argument (repeatable), e.g.
+                     --vice -8 --vice disk.d64 to attach a disk image
   --snap             memory handshake for tests/c64/gfx_check.c: the program
                      writes a step number to $02A7 and waits until $02A8
                      equals it. For each new step n the harness saves all
@@ -49,7 +51,7 @@ STEP, ACK = 0x02A7, 0x02A8        # --snap handshake bytes (free KERNAL page 2 R
 
 
 def parse_args(argv):
-    on, snap, out, pos = [], False, None, []
+    on, snap, out, pos, extra = [], False, None, [], []
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -57,6 +59,8 @@ def parse_args(argv):
             on.append((argv[i + 1], argv[i + 2])); i += 3
         elif a == "--out" and i + 1 < len(argv):
             out = argv[i + 1]; i += 2
+        elif a == "--vice" and i + 1 < len(argv):
+            extra.append(argv[i + 1]); i += 2
         elif a == "--snap":
             snap = True; i += 1
         else:
@@ -65,7 +69,7 @@ def parse_args(argv):
         sys.exit(__doc__)
     if not pos[1].strip() or (len(pos) == 4 and not pos[3].strip()):
         sys.exit("vice_screen: EXPECTED and FAILTEXT must not be empty\n" + __doc__)
-    return on, snap, out, pos
+    return on, snap, out, pos, extra
 
 
 def match(screen, expected, failtext):
@@ -80,7 +84,7 @@ def match(screen, expected, failtext):
 
 
 def main():
-    on, snap, outdir, pos = parse_args(sys.argv[1:])
+    on, snap, outdir, pos, extra = parse_args(sys.argv[1:])
     prg, expected, cycles = pos[:3]
     failtext = pos[3] if len(pos) == 4 else None
     os.makedirs(outdir, exist_ok=True)
@@ -91,7 +95,7 @@ def main():
     args = ["x64sc", "-console", "-default", "-config", os.path.join(outdir, "vicerc"),
             "-warp", "-sounddev", "dummy", "-limitcycles", str(cycles),
             "-remotemonitor", "-remotemonitoraddress", f"ip4://127.0.0.1:{port}",
-            "-autostartprgmode", "1", "-autostart", os.path.abspath(prg)]
+            "-autostartprgmode", "1"] + extra + ["-autostart", os.path.abspath(prg)]
     vlog = open(os.path.join(outdir, "vice.log"), "w")
     p = subprocess.Popen(args, stdout=vlog, stderr=subprocess.STDOUT)
     log = open(os.path.join(outdir, "monitor.log"), "w")
