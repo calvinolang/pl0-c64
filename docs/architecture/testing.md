@@ -68,7 +68,13 @@ VICE 3.7.1+dfsg1-2build3, Ubuntu 24.04.
 
 ## Clean clone
 
-CLEANCLONE
+Checked 2026-11-15 for Task 16: `git clone -b impl` of the repository
+(commit `7f9229b`) into a new directory, then `make check` there with
+nothing else prepared: **PASSED in 261 s** (host tests, then 9/9
+on-target targets; c64-app 131 s, c64-editor 46 s, c64-autostart 38 s).
+The clone needed no file outside the repository besides the installed
+tools above, and left only `build/` (ignored) behind. In the working
+tree, `make clean && make check`: PASSED in 273 s.
 
 ## VICE keyboard (for trying the program by hand)
 
