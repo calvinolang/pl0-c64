@@ -20,7 +20,8 @@ remote monitor never answered.
 
 Options (all may be repeated or combined):
   --on TRIGGER CMD   once a screen line equals TRIGGER, send the monitor
-                     command CMD (e.g. 'keybuf "12.5\\n"'). Each --on fires
+                     command CMD (e.g. 'keybuf 12.5\\n', no quotes: VICE
+                     would type them). Each --on fires
                      once, in the given order: one fires only after all
                      earlier ones have fired.
   --snap             memory handshake for tests/c64/gfx_check.c: the program
@@ -62,7 +63,20 @@ def parse_args(argv):
             pos.append(a); i += 1
     if out is None or len(pos) not in (3, 4):
         sys.exit(__doc__)
+    if not pos[1].strip() or (len(pos) == 4 and not pos[3].strip()):
+        sys.exit("vice_screen: EXPECTED and FAILTEXT must not be empty\n" + __doc__)
     return on, snap, out, pos
+
+
+def match(screen, expected, failtext):
+    """1 if a line starts with failtext (checked first), 0 if a line equals
+    expected (trailing spaces stripped), None otherwise."""
+    lines = [l.rstrip() for l in screen.splitlines()]
+    if failtext and any(l.startswith(failtext) for l in lines):
+        return 1
+    if expected in lines:
+        return 0
+    return None
 
 
 def main():
@@ -139,8 +153,8 @@ def main():
                     command(on[fired][1]); fired += 1
             command("x", wait_prompt=False)
             if len(data) == 1000:
-                if failtext and any(l.startswith(failtext) for l in lines): rc = 1; break
-                if expected in lines: rc = 0; break
+                m = match(screen, expected, failtext)
+                if m is not None: rc = m; break
         else:
             reason = "cycle limit reached" if p.poll() is not None else "wall-time guard expired"
             print(f"vice_screen: {reason} before a screen line equal to {expected!r}")

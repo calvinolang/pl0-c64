@@ -14,6 +14,7 @@ HDRS     := $(wildcard src/*/*.h tests/*.h)
 
 test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
+	@python3 tools/test_vice_screen.py
 	@fail=0; n=0; \
 	for t in $(TEST_BIN); do \
 	  n=$$((n+1)); echo "== $$t"; \

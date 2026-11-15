@@ -9,7 +9,8 @@
 #   `timeout` so it can never hang.
 # Options:
 #   --on TRIGGER CMD  send monitor command CMD once a screen line equals
-#                     TRIGGER (key injection: --on 'feed1' 'keybuf "12.5\n"');
+#                     TRIGGER (key injection, no quotes around the keys:
+#                     VICE would type them: --on feed1 'keybuf 12.5\n');
 #                     repeatable, fired in order (see tools/vice_screen.py)
 #   --snap            RAM snapshot handshake ($02A7/$02A8): OUTDIR/snapN.bin
 #                     holds all 64 KB of RAM at step N (tests/c64/gfx_check.c)
