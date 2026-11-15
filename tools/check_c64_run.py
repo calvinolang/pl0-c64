@@ -15,12 +15,15 @@ snap1.bin (all 64 KB of RAM saved while the bitmap was shown).
                  tools/compare_output.py (numbers within 1e-6 relative)
   --pbm FILE     the C64 bitmap in snap1.bin against the host rendering
                  (`pl0host --pbm`): set-pixel counts within 3% (5-byte
-                 floats move a pixel here and there) and the bounding box
-                 of the set pixels within 2 pixels on every side
+                 floats move a pixel here and there), the bounding box
+                 of the set pixels within 2 pixels on every side, and the
+                 overlap check of compare_drawing (pixels more than 1
+                 pixel away from the other drawing: at most 3% each way)
   --name NAME    print a result line `NAME ok|FAIL <seconds> s ...`
   --tsv FILE     append `NAME result run_s compile_s run_cycles` to FILE
 Always: no screen line may start with `FAIL` (core_check.c reports a
-damaged source buffer that way).
+damaged source buffer that way). Without --screen (example mode) the
+`cycles` line is required, so a passing row always has its times.
 
 Example mode reads `cycles C R` from the screen: C = CPU cycles of
 pl0_compile, R = of pl0_run (CIA2 timers), seconds = cycles / 985248
@@ -41,6 +44,7 @@ BITMAP = 0xE000
 W, H = 320, 200
 PIXEL_TOL = 0.03
 BOX_TOL = 2
+FAR_TOL = 0.03
 
 
 def bitmap(snap):
@@ -61,6 +65,50 @@ def box(px):
     xs = [p[0] for p in pts]
     ys = [p[1] for p in pts]
     return min(xs), max(xs), min(ys), max(ys)
+
+
+def far_pixels(a, b):
+    """Pixels set in a with no set pixel of b within 1 pixel (Chebyshev)."""
+    near = set()
+    for y in range(H):
+        for x in range(W):
+            if b[y][x]:
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        near.add((x + dx, y + dy))
+    return sum(1 for y in range(H) for x in range(W) if a[y][x] and (x, y) not in near)
+
+
+def compare_drawing(got, host):
+    """Compare the C64 bitmap with the host rendering (both lists of rows
+    of 0/1). Returns (errors, summary line). Checks:
+      - set-pixel counts within PIXEL_TOL (3%) of the host count;
+      - bounding boxes within BOX_TOL (2) pixels on every side;
+      - overlap: C64 pixels with no host pixel within 1 pixel (Chebyshev),
+        and host pixels with no C64 pixel within 1 pixel, each at most
+        FAR_TOL (3%) of the host count. 5-byte floats move a line end by
+        about a pixel, which the 1-pixel neighbourhood absorbs (measured:
+        0 far pixels for every example), while a mirrored, rotated or
+        swapped-axis figure that is not symmetric leaves most pixels far
+        (tools/test_check_c64_run.py). 3% is the same margin as the count
+        check: room for a few short stray segments, none for a figure in
+        the wrong place. The counts and the box alone would pass a centred
+        figure mirrored about the screen centre."""
+    errors = []
+    nc, nh = sum(map(sum, got)), sum(map(sum, host))
+    bc, bh = box(got), box(host)
+    fc, fh = far_pixels(got, host), far_pixels(host, got)
+    if nh == 0 or abs(nc - nh) > PIXEL_TOL * nh:
+        errors.append("set pixels %d vs host %d: more than 3%% apart" % (nc, nh))
+    if bc is None or bh is None or any(abs(a - b) > BOX_TOL for a, b in zip(bc, bh)):
+        errors.append("bounding box %s vs host %s: more than %d pixels apart" % (bc, bh, BOX_TOL))
+    if fc > FAR_TOL * nh or fh > FAR_TOL * nh:
+        errors.append("overlap: %d C64 pixels far from the host drawing, %d host pixels far "
+                      "from the C64 drawing (limit %d each, 3%% of %d)"
+                      % (fc, fh, int(FAR_TOL * nh), nh))
+    summary = ("%d set pixels on the C64, %d on the host (%+.2f%%); box C64 %s host %s; "
+               "far pixels C64 %d host %d" % (nc, nh, 100.0 * (nc - nh) / max(nh, 1), bc, bh, fc, fh))
+    return errors, summary
 
 
 def main(argv):
@@ -102,10 +150,10 @@ def main(argv):
         except (IndexError, ValueError):
             errors.append("bad cycles line %r" % cyc[0])
 
+    if not cyc and "--screen" not in opts:
+        errors.append("no `cycles` line on the screen")
     if "--text" in opts:
-        if not cyc:
-            errors.append("no `cycles` line on the screen")
-        else:
+        if cyc:
             out = lines[:lines.index(cyc[0])]
             path = os.path.join(outdir, "output.txt")
             open(path, "w").write("\n".join(out).rstrip("\n") + "\n")
@@ -122,18 +170,12 @@ def main(argv):
             got = bitmap(open(snap_path, "rb").read())
             hw, hh, hbits = read_p1(opts["--pbm"])
             host = [[int(hbits[y * hw + x]) for x in range(hw)] for y in range(hh)]
-            nc, nh = sum(map(sum, got)), sum(map(sum, host))
-            bc, bh = box(got), box(host)
             write_png(os.path.join(outdir, "bitmap.png"), W, H,
                       "".join("1" if v else "0" for row in got for v in row), 2)
             write_png(os.path.join(outdir, "host.png"), hw, hh, hbits, 2)
-            print("check_c64_run: %d set pixels on the C64, %d on the host (%+.2f%%); "
-                  "box C64 %s host %s" % (nc, nh, 100.0 * (nc - nh) / max(nh, 1), bc, bh))
-            if nh == 0 or abs(nc - nh) > PIXEL_TOL * nh:
-                errors.append("set pixels %d vs host %d: more than 3%% apart" % (nc, nh))
-            if bc is None or bh is None or any(abs(a - b) > BOX_TOL for a, b in zip(bc, bh)):
-                errors.append("bounding box %s vs host %s: more than %d pixels apart"
-                              % (bc, bh, BOX_TOL))
+            errs, summary = compare_drawing(got, host)
+            print("check_c64_run: " + summary)
+            errors += errs
 
     for e in errors:
         print("check_c64_run: FAIL: " + e)
