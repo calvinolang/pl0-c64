@@ -85,16 +85,89 @@ static void program_too_big(void) {
     strcpy(p, " end.");
     CHECK_EQ_STR(run(big), "ERROR line 1: program too big");
 }
-static void expression_nesting_limit(void) {
+/* "!" followed by n nested parentheses around 1. */
+static const char *parens(int n) {
     char *p = big;
     int i;
     *p++ = '!';
-    for (i = 0; i < 40; i++) *p++ = '(';
+    for (i = 0; i < n; i++) *p++ = '(';
     *p++ = '1';
-    for (i = 0; i < 40; i++) *p++ = ')';
+    for (i = 0; i < n; i++) *p++ = ')';
     strcpy(p, ".");
+    return big;
+}
+static void expression_nesting_limit(void) {
+    CHECK_EQ_STR(run(parens(MAX_EXPR_NEST)), "1");               /* 16: ok */
+    CHECK_EQ_STR(run(parens(MAX_EXPR_NEST + 1)), "ERROR line 1: nested too deeply");
+    CHECK_EQ_STR(run(parens(40)), "ERROR line 1: nested too deeply");
+    /* unary signs count too: 16 minus signs ok, 17 too deep */
+    memset(big, '-', MAX_EXPR_NEST + 1);
+    big[0] = '!';
+    strcpy(big + 1 + MAX_EXPR_NEST, "1.");
+    CHECK_EQ_STR(run(big), "1");                                 /* 16 signs: even */
+    memset(big, '-', MAX_EXPR_NEST + 2);
+    big[0] = '!';
+    strcpy(big + 2 + MAX_EXPR_NEST, "1.");
+    CHECK_EQ_STR(run(big), "ERROR line 1: nested too deeply");
+}
+/* n nested "begin ... end" around "!1". */
+static const char *begins(int n) {
+    char *p = big;
+    int i;
+    for (i = 0; i < n; i++) p += sprintf(p, "begin ");
+    p += sprintf(p, "!1");
+    for (i = 0; i < n; i++) p += sprintf(p, " end");
+    strcpy(p, ".");
+    return big;
+}
+static void statement_nesting_limit(void) {
+    PL0Error e;
+    CHECK_EQ_STR(run(begins(MAX_STMT_NEST)), "1");               /* 16: ok */
+    CHECK_EQ_STR(run(begins(MAX_STMT_NEST + 1)), "ERROR line 1: nested too deeply");
+    CHECK_EQ_STR(run(begins(200)), "ERROR line 1: nested too deeply");
+    CHECK_EQ_INT(pl0_compile(begins(200), &prog, &e), 1);
+    CHECK_EQ_INT(e.code, E_NESTING);
+}
+static void consts_limit(void) {
+    char *p;
+    int i;
+    PL0Error e;
+    /* MAX_CONSTS distinct literals ok, one more -> program too big */
+    p = big + sprintf(big, "begin !1");
+    for (i = 2; i <= MAX_CONSTS; i++) p += sprintf(p, "; !%d", i);
+    strcpy(p, " end.");
+    CHECK_EQ_INT(pl0_compile(big, &prog, &e), 0);
+    CHECK_EQ_INT(prog.nconsts, MAX_CONSTS);
+    sprintf(p, "; !%d end.", MAX_CONSTS + 1);
     CHECK_EQ_STR(run(big), "ERROR line 1: program too big");
-    CHECK_EQ_STR(run("!((((((((1)))))))).") , "1");
+}
+static void strings_limit(void) {
+    char *p;
+    int i;
+    PL0Error e;
+    /* 60 strings of 16 chars use 60*17 = 1020 bytes; a 3-char string
+       (4 bytes with its NUL) fills the pool to exactly MAX_STRINGS = 1024. */
+    p = big + sprintf(big, "begin !'s%015d'", 0);
+    for (i = 1; i < 60; i++) p += sprintf(p, "; !'s%015d'", i);
+    strcpy(p, "; !'abc' end.");
+    CHECK_EQ_INT(pl0_compile(big, &prog, &e), 0);
+    CHECK_EQ_INT(prog.nstrings, MAX_STRINGS);
+    strcpy(p, "; !'abc'; !'x' end.");                  /* 2 more bytes */
+    CHECK_EQ_STR(run(big), "ERROR line 1: program too big");
+}
+static void code_limit(void) {
+    char *p;
+    int i;
+    PL0Error e;
+    /* INT + n bare "!" (one WRL each) + RET = n + 2 instructions */
+    p = big + sprintf(big, "begin !");
+    for (i = 1; i < MAX_CODE - 2; i++) p += sprintf(p, "; !");
+    strcpy(p, " end.");
+    CHECK_EQ_INT(pl0_compile(big, &prog, &e), 0);
+    CHECK_EQ_INT(prog.ncode, MAX_CODE);
+    strcpy(p, "; ! end.");
+    CHECK_EQ_INT(pl0_compile(big, &prog, &e), 1);
+    CHECK_EQ_INT(e.code, E_PROGRAM_TOO_BIG);
 }
 static void literals_deduplicated(void) {
     PL0Error e;
@@ -141,6 +214,10 @@ int main(void) {
     too_many_idents();
     program_too_big();
     expression_nesting_limit();
+    statement_nesting_limit();
+    consts_limit();
+    strings_limit();
+    code_limit();
     literals_deduplicated();
     lexer_error_reported();
     syntax_errors();

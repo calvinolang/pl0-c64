@@ -3,8 +3,9 @@
  * C64 notes: all state is static (cc65 accesses statics faster than stack
  * locals and its software stack is small); errors unwind with longjmp so the
  * compiler stops at the first error without checks after every call.
- * Recursion depth is bounded by MAX_EXPR_NEST (expressions) and, from
- * Task 7, MAX_NEST (procedures). */
+ * Recursion depth is bounded by MAX_EXPR_NEST (expressions), MAX_STMT_NEST
+ * (structured statements) and, from Task 7, MAX_NEST (procedures); all three
+ * report E_NESTING. */
 #include <setjmp.h>
 #include <string.h>
 #include "core/compiler.h"
@@ -27,7 +28,8 @@ static uint8_t nsyms;
 static uint8_t level;      /* absolute declaration level of the current block */
 static uint8_t depth;      /* VM temporaries currently on the stack */
 static uint8_t maxdepth;   /* maximum of depth in the current block */
-static uint8_t nest;       /* current expression nesting */
+static uint8_t nest;       /* current expression nesting: ( and unary signs */
+static uint8_t snest;      /* current structured-statement nesting */
 
 static void expression(void);
 
@@ -122,8 +124,8 @@ static void factor(void)
 {
     Sym *s;
     uint16_t line;
+    uint8_t neg;
 
-    if (++nest > MAX_EXPR_NEST) fail(E_PROGRAM_TOO_BIG);
     switch (lx.tok) {
     case T_IDENT:
         s = find();
@@ -140,24 +142,25 @@ static void factor(void)
         next();
         break;
     case T_LPAREN:
+        if (++nest > MAX_EXPR_NEST) fail(E_NESTING);
         next();
         expression();
         expect(T_RPAREN, E_EXPECTED_RPAREN);
+        --nest;
         break;
     case T_MINUS:
-        line = lx.line;
-        next();
-        factor();
-        emit(OP_OPR, OPR_NEG, (int16_t)line);
-        break;
     case T_PLUS:
+        if (++nest > MAX_EXPR_NEST) fail(E_NESTING);
+        line = lx.line;
+        neg = lx.tok == T_MINUS;
         next();
         factor();
+        if (neg) emit(OP_OPR, OPR_NEG, (int16_t)line);
+        --nest;
         break;
     default:
         fail(E_EXPECTED_EXPR);
     }
-    --nest;
 }
 
 /* term = factor { ("*" | "/") factor } */
@@ -221,6 +224,7 @@ static void statement(void)
         --depth;
         break;
     case T_BEGIN:
+        if (++snest > MAX_STMT_NEST) fail(E_NESTING);
         next();
         statement();
         for (;;) {
@@ -230,6 +234,7 @@ static void statement(void)
             statement();
         }
         expect(T_END, E_EXPECTED_END);
+        --snest;
         break;
     case T_BANG:
         next();
@@ -314,6 +319,7 @@ int pl0_compile(const char *src, Program *p, PL0Error *err)
     level = 0;
     depth = 0;
     nest = 0;
+    snest = 0;
     err->code = E_NONE;
     err->line = 0;
     lex_init(&lx, src);
