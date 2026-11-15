@@ -2,7 +2,9 @@
 """Build (and verify) the PL/0 disk image with c1541.
 
 usage: mkdisk.py PRG EXAMPLES_DIR OUT.d64            build, then verify
-       mkdisk.py --verify EXAMPLES_DIR IMAGE.d64     verify only
+       mkdisk.py --verify EXAMPLES_DIR IMAGE.d64 [PRG]
+                                                     verify only (PL0 against
+                                                     PRG too, if given)
        mkdisk.py --index EXAMPLES_DIR                print the INDEX file
 
 The disk (title `PL0 TURTLE`, id `25`) holds:
@@ -121,8 +123,8 @@ def verify(exdir, image, prg=None):
 
 
 def main(argv):
-    if len(argv) == 3 and argv[0] == "--verify":
-        verify(argv[1], argv[2])
+    if len(argv) in (3, 4) and argv[0] == "--verify":
+        verify(argv[1], argv[2], argv[3] if len(argv) == 4 else None)
     elif len(argv) == 2 and argv[0] == "--index":
         sys.stdout.write(index_text(argv[1]))
     elif len(argv) == 3:

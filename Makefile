@@ -10,7 +10,7 @@ TEST_SRC := $(wildcard tests/test_*.c)
 TEST_BIN := $(patsubst tests/%.c,$(BUILD)/%,$(TEST_SRC))
 HDRS     := $(wildcard src/*/*.h tests/*.h)
 
-.PHONY: test host examples c64 disk c64-disk c64-app c64-mem c64-editor c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples clean
+.PHONY: test host examples c64 disk c64-disk c64-app c64-mem c64-mem-doc c64-editor c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples c64-autostart c64-app-examples smoke check check-full dist clean
 
 test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
@@ -213,7 +213,7 @@ $(C64_BUILD)/pl0_tiny.prg: $(C64_BUILD)/main_tiny.o $(APP_C64_OBJ) $(C64_CFG)
 $(BUILD)/pl0.prg: $(C64_BUILD)/pl0.prg
 	cp $< $@
 
-# the editor on the target: tests/vice_smoke.sh (about 1 minute)
+# the editor on the target: tests/vice_smoke.sh (15 cases, about 50 s)
 c64-editor: $(BUILD)/pl0.prg $(C64_BUILD)/pl0_tiny.prg
 	sh tests/vice_smoke.sh
 
@@ -239,13 +239,62 @@ c64-app: $(BUILD)/pl0.prg $(BUILD)/pl0.d64 host c64-mem
 	sh tests/vice_app.sh
 
 # the memory map of build/pl0.prg: BSS must end at $$97FF at the latest
-# (the C stack starts at $$9800); prints the free bytes
+# (the C stack starts at $$9800); prints the free bytes, and fails if the
+# generated tables in docs/architecture/memory-map.md differ from the map
+# (make c64-mem-doc rewrites them)
+MEM_DOC := docs/architecture/memory-map.md
 c64-mem: $(BUILD)/pl0.prg
-	python3 tools/c64_mem.py $(C64_BUILD)/pl0.map
+	python3 tools/c64_mem.py $(C64_BUILD)/pl0.map --doc $(MEM_DOC)
+
+c64-mem-doc: $(BUILD)/pl0.prg
+	python3 tools/c64_mem.py $(C64_BUILD)/pl0.map --write-doc $(MEM_DOC)
 
 # all examples, one after the other, and a table of the C64 run times
 c64-examples: host
 	sh tests/c64_examples.sh
+
+# ---- acceptance (Task 16)
+# the first minute of a user: x64sc -autostart build/pl0.d64 and
+# build/pl0.prg with VICE's defaults and true drive emulation; the editor
+# boots, F1 draws the square (tests/vice_autostart.sh; about 40 s)
+c64-autostart: $(BUILD)/pl0.prg $(BUILD)/pl0.d64 host
+	sh tests/vice_autostart.sh
+
+# all 15 examples through the program: F3, the example, F1, the output or
+# drawing against the goldens, the time from F1 (at most 30 s each);
+# about 2.5 minutes (tests/c64_app_examples.sh; --record writes the times)
+c64-app-examples: $(BUILD)/pl0.prg $(BUILD)/pl0.d64 host
+	sh tests/c64_app_examples.sh
+
+# the on-target suite, one target after the other with a time limit each,
+# and a summary table (tests/smoke.sh). Without VICE (or its ROMs) it
+# fails with install hints; ALLOW_NO_VICE=1 skips it instead.
+smoke:
+	@sh tests/smoke.sh
+
+# the standard gate: host tests, then the on-target suite
+check:
+	@t0=$$(date +%s); $(MAKE) --no-print-directory test && $(MAKE) --no-print-directory smoke; \
+	rc=$$?; [ $$rc -eq 0 ] && r=PASSED || r=FAILED; \
+	echo "make check: $$r in $$(( $$(date +%s) - t0 )) s"; exit $$rc
+
+# everything: make check, then every example on the C64 twice, through
+# core_check (c64-examples) and through the program (c64-app-examples)
+check-full:
+	@t0=$$(date +%s); $(MAKE) --no-print-directory check && \
+	sh tests/smoke.sh c64-examples:1800 c64-app-examples:1800; \
+	rc=$$?; [ $$rc -eq 0 ] && r=PASSED || r=FAILED; \
+	echo "make check-full: $$r in $$(( $$(date +%s) - t0 )) s"; exit $$rc
+
+# the products: build/dist/pl0.prg and build/dist/pl0.d64, the image
+# verified (PL0 = the program, INDEX, every example byte for byte)
+dist: $(BUILD)/pl0.prg $(BUILD)/pl0.d64
+	@mkdir -p $(BUILD)/dist
+	cp $(BUILD)/pl0.prg $(BUILD)/pl0.d64 $(BUILD)/dist/
+	python3 tools/mkdisk.py --verify examples $(BUILD)/dist/pl0.d64 $(BUILD)/dist/pl0.prg
+	@c1541 $(BUILD)/dist/pl0.d64 -list | sed 's/^/  /'
+	@for f in $(BUILD)/dist/pl0.prg $(BUILD)/dist/pl0.d64; do \
+	  printf '%s: %s bytes\n' $$f $$(wc -c < $$f); done
 
 clean:
 	$(RM) -r $(BUILD)

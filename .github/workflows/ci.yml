@@ -1,11 +1,36 @@
 name: ci
-on: [push]
+on: [push, pull_request]
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  # host: unit tests and the example goldens (no emulator)
+  host:
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Install toolchain
         run: sudo apt-get update && sudo apt-get install -y gcc make python3 cc65
-      - name: Test
+      - name: Host tests
         run: make test
+  # target: the on-target suite in headless VICE (make smoke). x64sc runs
+  # with -console and the remote monitor, so no display is needed (checked
+  # locally with DISPLAY and WAYLAND_DISPLAY unset). Ubuntu's vice package
+  # has no Commodore ROMs; tools/install_vice_roms.sh takes them from the
+  # VICE 3.7.1 source release and checks their SHA-256.
+  target:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain and VICE
+        run: sudo apt-get update && sudo apt-get install -y gcc make python3 cc65 vice curl
+      - name: Install the VICE ROMs
+        run: sh tools/install_vice_roms.sh
+      - name: On-target suite
+        run: env -u DISPLAY -u WAYLAND_DISPLAY make smoke
+      - name: Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-logs
+          path: |
+            build/smoke/
+            build/vice/
