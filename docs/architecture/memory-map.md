@@ -115,7 +115,7 @@ RAM first. The options, measured or sized here:
 
 ## Task 15: step 0 and the final program
 
-**Step 0** (commit `6a48e7c`, before any Task 15 feature code):
+**Step 0** (commit `874bd94`, before any Task 15 feature code):
 
 - The VM stack (`stack[512]`, 2,560 bytes) moved to `HIBSS` on cc65
   (`src/core/vm.c`; it needs no clearing).
