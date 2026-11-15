@@ -205,6 +205,9 @@ picker_image() {
   printf 'var a;\r\nbegin\ta := 1;\r!a\nend.\r\n' > "$W/crlf.raw"
   printf 'var a;\nbegin a := 1;\n!a\nend.\n' > "$W/crlf.pl0"
   c1541 "$img" -write "$W/crlf.raw" "crlf,s" > /dev/null || return 1
+  # a name with a space: the program cannot open it, so it is not listed
+  # (it would sort between CRLF and U01 and move every row below)
+  c1541 "$img" -write "$W/crlf.pl0" "my prog,s" > /dev/null || return 1
   echo "$img"
 }
 
@@ -243,6 +246,73 @@ case_picker() {
     --on "$(status CRLF 1 1)" "$(dump mem.bin '0000 ffff')"
 }
 
+# ---- 7b: an INDEX entry whose file is gone: a plain message, the text
+# and the name unchanged, the editor still works
+case_missing_file() {
+  img=$(fresh "$CASE")
+  c1541 "$img" -delete polygon > /dev/null || return 1
+  { printf 'k'; cat examples/square.pl0; } > "$W/ksquare.pl0"
+  expect "row 0 $(status 'SQUARE*' 1 2)" "row 24 $BAR" "text mem.bin $W/ksquare.pl0" \
+    "screen msg.bin" "row 24 DISK ERROR: FILE NOT FOUND" "reverse 24" "row 0 $boot"
+  run "$img" "$(status 'SQUARE*' 1 2)" \
+    --on "$boot" 'keybuf \x86' --on "$PICK" 'keybuf \x11\n' \
+    --on 'DISK ERROR: FILE NOT FOUND' "$(dump msg.bin '0400 07e7')" \
+    --on 'DISK ERROR: FILE NOT FOUND' 'keybuf k' \
+    --on "$(status 'SQUARE*' 1 2)" "$(dump mem.bin '0000 ffff')"
+}
+
+# ---- 7c: the disk goes away in the middle of a load (the monitor
+# detaches the image while the 1541 reads): the drive's error (shown as NO
+# DISK), not a load: text and name unchanged; the editor still works.
+# (Turning drive 8 off instead, `resourceset "Drive8Type" "0"`, hangs the
+# KERNAL's serial receive, which waits for the clock line without a
+# timeout: as a real drive switched off mid-transfer can. A READST error
+# with a fine drive status, DK_READ, could not be injected.)
+case_read_error() {
+  img=$W/$CASE.d64
+  cp $IMG "$img"
+  python3 -c "
+import sys
+for i in range(205): sys.stdout.write('{ line %03d abcdefghijklmnopqrstuvwxy }\n' % i)" > "$W/full.pl0"
+  c1541 "$img" -write "$W/full.pl0" "full,s" > /dev/null || return 1
+  expect "screen msg.bin" "row 24 NO DISK" "row 0 $boot" "row 1 [ a square ]" \
+    "screen" "row 0 $(status SQUARE 1 2)" "row 24 $BAR"
+  run "$img" "$(status SQUARE 1 2)" \
+    --on "$boot" 'keybuf \x86' --on "$PICK" "keybuf $(downs 15)\\n" \
+    --on 'LOADING FULL' 'detach 8' \
+    --on "$boot" "$(dump msg.bin '0400 07e7')" --on "$boot" 'keybuf \x1d'
+}
+
+# ---- 3b: input after a drawing is read on the text screen; the next
+# line shows the drawing again; a runtime error after a drawing shows on
+# the text screen, then in the editor
+case_input_after_drawing() {
+  img=$(fresh "$CASE")
+  p='var a; begin forward(50); ?a; forward(a) end.'
+  printf 'begin forward(50); forward(30) end.' > "$W/fw.pl0"
+  build/pl0host --pbm "$W/fw.pbm" "$W/fw.pl0" > /dev/null || return 1
+  expect "byte d1.bin 20 00" "pbm draw.bin $W/fw.pbm" "byte d2.bin 20 20" \
+    "screen ask.bin" "row 0 ?"
+  run "$img" "$(status 'NEW*' 1 $((${#p} + 1)))" \
+    --on "$boot" "keybuf \\x89$p\\x85" \
+    --on '?' "$(dump ask.bin '0400 07e7')" \
+    --on '?' 'bank io' --on '?' "$(dump d1.bin 'd011 d011')" --on '?' 'bank ram' \
+    --on '?' 'keybuf 30\n' \
+    --on "$DRAWKEY" pause \
+    --on "$DRAWKEY" "$(dump draw.bin '0000 ffff')" \
+    --on "$DRAWKEY" 'bank io' --on "$DRAWKEY" "$(dump d2.bin 'd011 d011')" --on "$DRAWKEY" 'bank ram' \
+    --on "$DRAWKEY" 'keybuf x' || return 1
+  printf 'begin forward(50); !1/0 end.' > "$W/err3.pl0"
+  expect "row 24 ERROR line 1: division by zero" "cursor 1 0" "text mem.bin $W/err3.pl0" \
+    "screen out.bin" "row 0 ERROR line 1: division by zero" "row 1 $KEY" "byte d1.bin 20 00"
+  run "$img" "$(status 'NEW*' 1 1)" \
+    --on "$boot" 'keybuf \x89begin forward(50); !1/0 end.\x85' \
+    --on "$KEY" "$(dump out.bin '0400 07e7')" \
+    --on "$KEY" 'bank io' --on "$KEY" "$(dump d1.bin 'd011 d011')" --on "$KEY" 'bank ram' \
+    --on "$KEY" 'keybuf x' \
+    --on "$(status 'NEW*' 1 1)" "$(dump mem.bin '0000 ffff')"
+}
+
 # ---- 8: no disk in the drive, then no drive at all: plain messages, the
 # editor still works
 case_no_disk() {
@@ -273,8 +343,8 @@ for i in range(205): sys.stdout.write('{ line %03d abcdefghijklmnopqrstuvwxy }\n
   disk_file "$img" COPY "$W/full.pl0"
 }
 
-ALL="run_factorial run_error drawing_runs stop_with_runstop save_roundtrip
-save_bad_name picker no_disk source_at_a000"
+ALL="run_factorial run_error drawing_runs input_after_drawing stop_with_runstop
+save_roundtrip save_bad_name picker missing_file read_error no_disk source_at_a000"
 [ $# -gt 0 ] && ALL=$*
 [ -f $PRG ] && [ -f $IMG ] || { echo "vice_app: $PRG or $IMG missing (make c64 disk)"; exit 1; }
 [ -x build/pl0host ] || { echo "vice_app: build/pl0host missing (make host)"; exit 1; }

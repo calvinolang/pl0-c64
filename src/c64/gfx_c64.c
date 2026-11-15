@@ -27,25 +27,38 @@
 
 void gfx_nmi_rti(void);                 /* gfx_c64.s: a lone RTI */
 
-static uint8_t is_open, s_dd00, s_d011, s_d016, s_d018, s_d020;
+static uint8_t s_dd00, s_d011, s_d016, s_d018, s_d020;
+uint8_t gfx_shown;      /* the bitmap is on screen (gfx_c64.h) */
+uint8_t gfx_hidden;     /* a drawing was switched off for input */
 
 /* switch the VIC to the bitmap without clearing it (gfx_c64.h): the run
  * screen toggles between a finished drawing and the text with it */
 void gfx_show(void)
 {
-    if (!is_open) {
+    if (!gfx_shown) {
         s_dd00 = REG(0xDD00) & 3;
         s_d011 = REG(0xD011) & 0x7F;    /* bit 7 is raster bit 8: write 0 */
         s_d016 = REG(0xD016);
         s_d018 = REG(0xD018);
         s_d020 = REG(0xD020);
-        is_open = 1;
+        gfx_shown = 1;
     }
+    gfx_hidden = 0;
     REG(0xD020) = 1;                    /* white border */
     REG(0xD018) = 0x38;                 /* matrix $CC00 (3 << 4), bitmap at +$2000 */
     REG(0xDD00) = REG(0xDD00) & 0xFC;   /* VIC bank 3: $C000-$FFFF */
     REG(0xD016) = s_d016 & 0xEF;        /* hi-res, not multicolour */
     REG(0xD011) = 0x3B;                 /* bitmap mode, screen on, 25 rows */
+}
+
+/* the text view while a program reads input; gfx_line shows the drawing
+ * again (gfx_hidden) at its next line */
+void gfx_hide(void)
+{
+    if (gfx_shown) {
+        gfx_close();
+        gfx_hidden = 1;
+    }
 }
 
 void gfx_open(void)
@@ -60,11 +73,11 @@ void gfx_open(void)
 
 void gfx_close(void)
 {
-    if (!is_open) return;
+    if (!gfx_shown) return;
     REG(0xD011) = s_d011;
     REG(0xD016) = s_d016;
     REG(0xDD00) = (REG(0xDD00) & 0xFC) | s_dd00;
     REG(0xD018) = s_d018;
     REG(0xD020) = s_d020;
-    is_open = 0;
+    gfx_shown = 0;
 }

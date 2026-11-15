@@ -151,7 +151,9 @@ RAM first. The options, measured or sized here:
 
 - **LOWBSS** is a new BSS-only area in `pl0-c64.cfg`: the KERNAL's
   cassette buffer `$033C-$03FB`, unused because the program never touches
-  tape (disk I/O does not use it). crt0 does not clear it; `main` clears
+  tape (disk I/O does not use it; on real hardware a fast-load cartridge
+  or loader might use the tape buffer area, which would clash). crt0
+  does not clear it; `main` clears
   it with HIBSS. It holds the small variables of `main.c`, `disk.{c,s}`
   and `picker.{c,s}`.
 - The picker list reuses the idle `Program` (a union in `main.c`, 118

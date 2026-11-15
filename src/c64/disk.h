@@ -9,13 +9,18 @@
  * PETSCII, so names go to the KERNAL unchanged.
  *
  * Results: 0 success, otherwise the drive's DOS error code (20..99, from
- * the error channel 15) or one of the codes below. Not reentrant; every
- * call closes what it opened (logical files 2 and 15). */
+ * the error channel 15) or one of the codes below. Not reentrant. Logical
+ * files 2 (data) and 15 (command channel): disk_load and disk_save close
+ * both before they return; of the primitives below, dk_open leaves 2 and
+ * 15 open on success (dk_close closes them), dk_cmd leaves 15 open (the
+ * next operation closes it first), and every failing call closes both. */
 #include <stdint.h>
 #include "c64/textbuf.h"
 
 #define DK_NODEV  254   /* no drive answers (KERNAL: device not present) */
 #define DK_TOOBIG 253   /* file longer than the text buffer */
+#define DK_READ   252   /* the KERNAL reported a read error (READST) while
+                           the drive status was fine: e.g. a serial timeout */
 #define DK_EXISTS 63    /* DOS 63 FILE EXISTS (disk_save without replace) */
 
 /* nonzero if s is a valid program file name: 1..12 of A-Z 0-9 - _ . */
@@ -46,7 +51,8 @@ uint8_t disk_save(const char *name, TextBuf *t, uint8_t replace);
  * returns the next byte or -1 at the end or on an error; dk_text reads
  * the rest as text into dst (0: only count), at most dk_lim bytes, and
  * returns the count; dk_write sends a NUL-terminated string; dk_close
- * closes and returns the drive status (0 when fine). dk_cmd sends a DOS
+ * closes and returns the drive status (0 when fine), or DK_READ when the
+ * status was fine but dk_getc had stopped on a KERNAL read error. dk_cmd sends a DOS
  * command (S0:NAME) and returns the status. */
 uint8_t __fastcall__ dk_open(const char *fname);
 int dk_getc(void);

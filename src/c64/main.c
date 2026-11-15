@@ -21,7 +21,8 @@
  * open_program uses big.list (picker_run fills it, the chosen name is
  * copied out before picker_run returns); both are called from the loop in
  * main one at a time, so neither ever sees the other's data, and nothing
- * in big outlives the call that wrote it.
+ * in big outlives the call that wrote it. There is no runtime guard: the
+ * rule is enforced by this structure.
  *
  * The starter text comes from examples/square.pl0 through a header the
  * Makefile generates (tools/pl0_to_c.py: core_src[], ASCII bytes as
@@ -70,6 +71,8 @@ extern char _HIBSS_RUN__[], _HIBSS_SIZE__[];
  * this file, disk.c/disk.s and picker.c/picker.s; main clears it too. */
 extern char _LOWBSS_RUN__[], _LOWBSS_SIZE__[];
 
+/* the Program or the picker list: see the ownership rule above (no
+ * runtime guard, enforced by structure) */
 #define PICK_MAX (sizeof(Program) / PICK_ROW)
 static union {
     Program prog;
@@ -110,7 +113,7 @@ static void run_line(const char *s)
 /* F1 */
 static const PL0Error *run_program(void)
 {
-    uint8_t shown = 1;
+    uint8_t shown;
     if (pl0_compile(tb_text(&text), &big.prog, &err)) return &err;
     io_text_open();
     NDX = 0;
@@ -129,6 +132,7 @@ static const PL0Error *run_program(void)
         return 0;
     }
     run_line("-- SPACE: DRAWING  ANY KEY: EDITOR --");
+    shown = gfx_shown;          /* text, if the program ended reading input */
     while (wait_key() == ' ') {
         shown ^= 1;
         if (shown) gfx_show();
@@ -238,6 +242,7 @@ int main(void)
     memset(_HIBSS_RUN__, 0, (size_t)_HIBSS_SIZE__);
     memset(_LOWBSS_RUN__, 0, (size_t)_LOWBSS_SIZE__);
     disk_init();
+    io_before_input = gfx_hide;
     tb_init(&text, source, sizeof source);
     tb_set(&text, (const char *)core_src);
     editor_set_name("SQUARE");

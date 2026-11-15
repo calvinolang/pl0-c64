@@ -112,8 +112,10 @@ run) are dropped.
 - Returning: `gfx_close`, then the editor redraws everything. A run never
   changes the text or the editor state (checked in `tests/vice_app.sh`:
   the buffer equals the loaded example byte for byte after a run).
-- A program that reads input (`?x`) after it has drawn reads it on the
-  hidden text screen; no example does that.
+- A program that reads input (`?x`) after it has drawn switches to the
+  text view for the prompt (`io_before_input` = `gfx_hide`); its next
+  line shows the drawing again. If it ends while the text view is shown,
+  the end prompt starts there and SPACE shows the drawing.
 
 ## Disk (Task 15, `src/c64/disk.{c,s}`)
 
@@ -127,12 +129,19 @@ run) are dropped.
   after every open, command and close. A missing drive (KERNAL error 5),
   DOS 74 DRIVE NOT READY and DOS 21 READ ERROR (what a 1541 without a
   disk answers) all show as `NO DISK`.
-- Load: two passes. The first only counts (and stops once the file is too
-  big: `FILE TOO BIG`, nothing changes); the second stores into the buffer
-  under the BASIC ROM. CR, LF and CR LF become one `\n`, a tab a space,
-  other bytes outside `$20-$7E` are dropped. If the second pass fails, the
-  buffer holds the part that was read, named NEW and marked modified.
-  Cursor on line 1, column 1, not modified, name set.
+- Load: two passes. The first only counts the text bytes and stops once
+  there are too many. CR, LF and CR LF become one `\n`, a tab a space,
+  other bytes outside `$20-$7E` are dropped.
+  - On success the buffer holds the file, the program takes its name, it
+    is not modified, and the cursor is on line 1, column 1.
+  - If the first pass fails (missing file, too big, no disk, a read
+    error), nothing changes: text, name and modified flag stay as they
+    were (`FILE TOO BIG`, `DISK ERROR: FILE NOT FOUND`, `NO DISK`, ...).
+  - If the second pass fails, the buffer holds the part that was read; it
+    is named NEW and marked modified.
+  - A KERNAL read error (READST) while the drive reports no error counts
+    as a failure too: `DISK ERROR: READ FAILED`, never a short file
+    loaded as if complete.
 - Save: opening `NAME,S,W` answers 63 FILE EXISTS before anything is
   written; the program then asks. A replace scratches the file (`S0:NAME`)
   and writes it again (the 1541's `@0:` save-with-replace has a known
@@ -169,7 +178,8 @@ modified.
   `tools/mkdisk.py`), then every other SEQ file with a valid name, sorted
   by name, without a description (reading each file's first comment
   would take a file open per entry: seconds on a 1541). `INDEX`, the
-  `PL0` program and names the program could not save are not listed; a
+  `PL0` program and names the program could not save (a space inside,
+  lower case, other characters, more than 12) are not listed; a
   file of the user's own named like an example is listed once, in the
   example's place. A disk without INDEX lists only the SEQ files.
 - CRSR down/up move and stop at the ends (no wrap); the list scrolls one

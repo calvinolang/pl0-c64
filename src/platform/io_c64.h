@@ -9,5 +9,8 @@ void io_text_close(void);   /* nothing yet */
 /* The output cursor's column: 0 when the next character starts a row
  * (after a new line); the run screen starts its own lines after it. */
 extern uint8_t io_col;
+/* Called by io_read_num before it prompts, if set (the program sets
+ * gfx_hide: input is read on the text screen, never under a drawing). */
+extern void (*io_before_input)(void);
 
 #endif

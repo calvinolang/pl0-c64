@@ -14,7 +14,8 @@
 ; the disk title (skipped); `BLOCKS FREE.` has no quotes. The type is the
 ; first 3 characters after the closing quote that are not spaces (an
 ; unclosed file shows `*SEQ`, which does not match). Listed: SEQ files
-; with a valid name (disk_name_ok), not INDEX, not an example again,
+; with a valid name (disk_name_ok; a space inside the quotes is stored as
+; `*` so that `MY PROG` fails the check instead of listing as MY), not INDEX, not an example again,
 ; sorted by name after the examples; at most pk_max entries in all.
 ; Zero page: ptr3 (entry pointer), ptr4; disk.s uses ptr1 and ptr2.
 
@@ -268,7 +269,10 @@ _pk_read:
 @dq:    ldx     q
         cpx     #1
         bne     @dt
-        ldx     #DESC           ; inside the quotes: the name
+        cmp     #' '            ; a space inside a name: make the
+        bne     :+              ; name invalid (MY PROG is not listed)
+        lda     #'*'
+:       ldx     #DESC           ; inside the quotes: the name
         jsr     putc
         jmp     @dc
 @dt:    cpx     #2

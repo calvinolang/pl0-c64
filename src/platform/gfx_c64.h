@@ -6,5 +6,10 @@
  * after a run, SPACE toggles between the drawing (gfx_show) and the text
  * screen (gfx_close), which the bitmap never touches. */
 void gfx_show(void);
+/* Back to the text screen while a program reads input (io_c64.c calls it
+ * through io_before_input); the next gfx_line shows the drawing again. */
+void gfx_hide(void);
+#include <stdint.h>
+extern uint8_t gfx_shown;   /* nonzero while the bitmap is on screen */
 
 #endif

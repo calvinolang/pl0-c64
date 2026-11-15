@@ -101,8 +101,9 @@ uint8_t picker_run(char *list, uint8_t max, char *name)
     ed_put("");
     ed_scr = SCREEN + 920;
     ed_put("");
-    ui_bar(" RETURN open  RUN/STOP back  CRSR move", C_TEXT);
     sel = top = 0;
+    draw();                     /* the key bar last: a complete frame */
+    ui_bar(" RETURN open  RUN/STOP back  CRSR move", C_TEXT);
     old_rpt = RPTFLG;
     RPTFLG = 0x80;              /* held CRSR keys repeat */
     NDX = 0;

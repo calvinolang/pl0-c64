@@ -33,6 +33,7 @@
 
         .include "ascii.inc"   ; ASCII character constants
         .export _gfx_line, _gfx_nmi_rti
+        .import _gfx_hidden, _gfx_show
         .import _clip_line, popax, pushax
         .importzp ptr1, ptr2, ptr3, tmp1, tmp2, tmp3
 
@@ -72,7 +73,10 @@ _gfx_line:
         jsr     popax
         sta     x0
         stx     x0+1
-        jsr     inside
+        lda     _gfx_hidden     ; the drawing was hidden for input:
+        beq     :+              ; show it again (gfx_c64.c)
+        jsr     _gfx_show
+:       jsr     inside
         bcc     draw            ; all inside: no clipping needed
         lda     #<x0            ; clip_line(&x0, &y0, &x1, &y1)
         ldx     #>x0

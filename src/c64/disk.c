@@ -20,12 +20,31 @@
 #include "core/ascii.h"
 #include "c64/disk.h"
 
+/* disk_message: "DISK ERROR: " + one of these; the buffer is checked at
+ * compile time to hold the longest (a message once overran it) */
+#define PREFIX  "DISK ERROR: "
+#define T_NODISK "NO DISK"
+#define T_NOTFOUND "FILE NOT FOUND"
+#define T_EXISTS "FILE EXISTS"
+#define T_FULL "DISK FULL"
+#define T_READ "READ FAILED"
+#define MSG_MAX 26              /* PREFIX + the longest text (FILE NOT FOUND) */
+/* each array below has a size <= 0, a compile error, if a text is too long */
+#define FITS(t) typedef char fits_##t[MSG_MAX + 3 - sizeof PREFIX - sizeof t]
+FITS(T_NODISK);
+FITS(T_NOTFOUND);
+FITS(T_EXISTS);
+FITS(T_FULL);
+FITS(T_READ);
+typedef char fits_number[MSG_MAX + 2 - sizeof "DISK ERROR 00"];
+typedef char fits_toobig[MSG_MAX + 2 - sizeof "FILE TOO BIG"];
+
 /* LOWBSS: the cassette buffer (pl0-c64.cfg), cleared by main */
 #pragma bss-name (push, "LOWBSS")
 uint8_t disk_touched;
 
 static char fn[24];             /* file name or command for the drive */
-static char mbuf[24];           /* disk_message */
+static char mbuf[MSG_MAX + 1];  /* disk_message */
 static uint8_t rc;
 static uint16_t n;
 #pragma bss-name (pop)
@@ -77,12 +96,13 @@ const char *disk_message(uint8_t code)
     if (code == DK_TOOBIG) return "FILE TOO BIG";
     /* no drive; 74 DRIVE NOT READY; a 1541 without a disk also answers
      * 21 READ ERROR (no sync mark found) */
-    if (code == DK_NODEV || code == 74 || code == 21) s = "NO DISK";
-    else if (code == 62) s = "FILE NOT FOUND";
-    else if (code == 63) s = "FILE EXISTS";
-    else if (code == 72) s = "DISK FULL";
+    if (code == DK_NODEV || code == 74 || code == 21) s = T_NODISK;
+    else if (code == 62) s = T_NOTFOUND;
+    else if (code == 63) s = T_EXISTS;
+    else if (code == 72) s = T_FULL;
+    else if (code == DK_READ) s = T_READ;
     if (s) {
-        strcpy(mbuf, "DISK ERROR: ");
+        strcpy(mbuf, PREFIX);
         strcat(mbuf, s);
     } else {
         strcpy(mbuf, "DISK ERROR 00");

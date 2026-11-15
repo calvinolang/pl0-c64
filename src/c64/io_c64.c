@@ -37,9 +37,12 @@ void io_back(void);                     /* cursor one place back */
 static uint8_t n, c;
 static char in[MAXIN + 1];
 
+void (*io_before_input)(void);
+
 int io_read_num(num_t *r)
 {
     const char *p = in;
+    if (io_before_input) io_before_input();     /* e.g. leave the drawing */
     io_put_str("? ");
     n = 0;
     for (;;) {

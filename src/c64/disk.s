@@ -41,6 +41,7 @@ FA_LAST = $BA           ; KERNAL: the device last used (the program's own)
 LF_DATA = 2
 LF_CMD  = 15
 NODEV   = 254           ; DK_NODEV in disk.h
+DK_READ = 252           ; DK_READ in disk.h
 CR      = $0D
 NL      = $0A
 
@@ -223,13 +224,20 @@ _dk_getc:
         tax
         rts
 
-; uint8_t dk_close(void): close file 2; the drive status; all closed
+; uint8_t dk_close(void): close file 2; the drive status, or DK_READ if
+; it is fine but dk_getc stopped on a READST error bit; all closed
 _dk_close:
         jsr     CLRCHN
         lda     #LF_DATA
         jsr     CLOSE
         jsr     status
-        pha
+        cmp     #0
+        bne     @st             ; the drive's error first
+        lda     eof             ; a KERNAL read error (not just EOF $40)
+        and     #$BF
+        beq     @st
+        lda     #DK_READ
+@st:    pha
         jsr     close_all
         pla
         ldx     #0
