@@ -1,0 +1,39 @@
+{ pi from two series }
+{ Leibniz: pi/4 = 1-1/3+1/5-1/7...
+  is simple but slow: 1000 terms
+  give 3 digits. Machin: pi/4 =
+  4*atan(1/5) - atan(1/239), with
+  atan(x) = x-x^3/3+x^5/5-..., is
+  fast: 7 digits in 5 terms. }
+var s, i, m, a, b, p, q, t;
+begin
+  !'Leibniz series'; !;
+  !'terms  pi'; !;
+  s := 0; i := 0; m := 5;
+  while i < 500 do
+  begin
+    s := s + 1/(4*i+1) - 1/(4*i+3);
+    i := i + 1;
+    if i = m then
+    begin
+      if i < 50 then !' ';
+      if i < 500 then !' ';
+      !2*i; !'   '; !4*s; !;
+      m := m * 10
+    end
+  end;
+  !; !'Machin formula'; !;
+  !'terms  pi'; !;
+  a := 0; b := 0; i := 0; t := 1;
+  p := 1/5; q := 1/239;
+  while i < 6 do
+  begin
+    a := a + t * p / (2*i+1);
+    b := b + t * q / (2*i+1);
+    p := p / 25; q := q / 57121;
+    t := -t; i := i + 1;
+    !'   '; !i; !'   ';
+    !16*a - 4*b; !
+  end;
+  !; !'4*atan(1) = '; !4 * atan(1); !
+end.

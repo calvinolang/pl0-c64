@@ -1,0 +1,19 @@
+{ a square }
+{ The turtle starts in the middle
+  of the screen, facing up. Four
+  times: go forward, turn right.
+  penup/moveto/pendown first move
+  it without drawing, so that the
+  square ends up centered.
+  Try turn(120) and i < 3. }
+var i;
+begin
+  penup; moveto(-80, -80); pendown;
+  i := 0;
+  while i < 4 do
+  begin
+    forward(160);
+    turn(90);
+    i := i + 1
+  end
+end.

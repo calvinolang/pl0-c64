@@ -1,0 +1,28 @@
+{ factorials 1! to 12! }
+{ n! = 1*2*...*n. fact(k) calls
+  itself with k-1 until it reaches
+  0! = 1 (recursion). The result
+  comes back in the variable f.
+  Try 20 instead of 12: from 13!
+  on the numbers print as 1.2E+10. }
+var n, f;
+
+procedure fact(k);
+begin
+  if k = 0 then f := 1;
+  if k > 0 then
+  begin
+    call fact(k - 1);
+    f := f * k
+  end
+end;
+
+begin
+  n := 1;
+  while n <= 12 do
+  begin
+    call fact(n);
+    !n; !'! = '; !f; !;
+    n := n + 1
+  end
+end.

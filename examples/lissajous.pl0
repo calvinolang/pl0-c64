@@ -1,0 +1,18 @@
+{ Lissajous curve }
+{ x and y swing like two pendulums
+  with frequencies a and b:
+  x = 150*sin(a*t), y = 90*sin(b*t),
+  and t goes from 0 to 2*pi.
+  Try a = 3, b = 4 or a = 5, b = 4. }
+const a = 3, b = 2, steps = 120,
+  pi = 3.14159265;
+var t, i;
+begin
+  i := 0;
+  while i < steps do
+  begin
+    i := i + 1;
+    t := 2 * pi * i / steps;
+    moveto(150*sin(a*t), 90*sin(b*t))
+  end
+end.

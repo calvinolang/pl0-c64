@@ -1,0 +1,28 @@
+{ fractal tree }
+{ A tree is a trunk with two
+  smaller trees on top, one turned
+  left and one turned right. After
+  a branch the turtle goes back
+  down with the pen up. Try
+  angle = 20, f = 0.6 or depth 5. }
+const depth = 7, angle = 35,
+  f = 0.72;
+
+procedure tree(len, d);
+begin
+  forward(len);
+  if d > 1 then
+  begin
+    turn(-angle);
+    call tree(len * f, d - 1);
+    turn(2 * angle);
+    call tree(len * f, d - 1);
+    turn(-angle)
+  end;
+  penup; forward(-len); pendown
+end;
+
+begin
+  penup; moveto(0, -95); pendown;
+  call tree(62, depth)
+end.

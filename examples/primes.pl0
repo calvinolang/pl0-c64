@@ -1,0 +1,37 @@
+{ prime numbers to 200 }
+{ n is prime if no d with d*d <= n
+  divides it. d divides n when n/d
+  is a whole number: int(n/d) = n/d.
+  Only odd n and d are tried, and
+  the search stops at a divisor.
+  Try max = 500 (it takes longer). }
+const max = 200;
+var n, d, p, c, k;
+
+procedure show(x);
+begin
+  if c = 10 then begin !; c := 0 end;
+  if c > 0 then !' ';
+  if x < 100 then !' ';
+  if x < 10 then !' ';
+  !x;
+  c := c + 1; k := k + 1
+end;
+
+begin
+  call show(2);
+  n := 3;
+  while n <= max do
+  begin
+    p := 1; d := 3;
+    while d * d <= n do
+    begin
+      if int(n/d) = n/d then
+      begin p := 0; d := n end;
+      d := d + 2
+    end;
+    if p = 1 then call show(n);
+    n := n + 2
+  end;
+  !; !k; !' primes up to '; !max; !
+end.

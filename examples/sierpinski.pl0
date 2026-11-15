@@ -1,0 +1,28 @@
+{ Sierpinski triangle }
+{ The triangle is three half-size
+  copies of itself, and so on.
+  At depth 0 one triangle is drawn
+  with moveto: its corners are
+  computed, the turtle never turns.
+  Try depth 2 or 5 (slower). }
+const depth = 4, h = 0.8660254;
+
+procedure tri(x, y, s, d);
+begin
+  if d = 0 then
+  begin
+    penup; moveto(x, y); pendown;
+    moveto(x + s, y);
+    moveto(x + s / 2, y + s * h);
+    moveto(x, y)
+  end;
+  if d > 0 then
+  begin
+    s := s / 2; d := d - 1;
+    call tri(x, y, s, d);
+    call tri(x + s, y, s, d);
+    call tri(x + s/2, y + s*h, s, d)
+  end
+end;
+
+call tri(-108, -94, 216, depth).

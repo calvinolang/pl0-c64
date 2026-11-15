@@ -1,0 +1,23 @@
+{ regular polygon }
+{ n equal sides, and the turtle
+  turns 360/n degrees at each
+  corner, 360 in total. The side
+  is computed so that every
+  polygon fits a circle of radius
+  r. Try n = 3, 5, 12 or 40. }
+const n = 7, r = 90, pi = 3.14159265;
+var s, i;
+begin
+  s := 2 * r * sin(pi / n);
+  penup;
+  moveto(-s / 2, -r * cos(pi / n));
+  turn(90);
+  pendown;
+  i := 0;
+  while i < n do
+  begin
+    forward(s);
+    turn(-360 / n);
+    i := i + 1
+  end
+end.

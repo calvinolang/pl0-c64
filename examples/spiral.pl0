@@ -1,0 +1,18 @@
+{ square spiral }
+{ Like a square, but every side is
+  a bit longer than the one before,
+  and the turtle turns 92 degrees
+  instead of 90, so the squares
+  slowly twist. Try 90, 89 or 121
+  as angle, or step = 2. }
+const angle = 92, step = 4;
+var len;
+begin
+  len := 2;
+  while len < 170 do
+  begin
+    forward(len);
+    turn(angle);
+    len := len + step
+  end
+end.

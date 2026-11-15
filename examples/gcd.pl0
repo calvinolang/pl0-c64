@@ -1,0 +1,29 @@
+{ greatest common divisor }
+{ Euclid: gcd(a, b) = gcd(b, r),
+  r = remainder of a/b, until r
+  is 0. Each number printed is the
+  remainder of the two before it.
+  Fibonacci numbers are the
+  slowest case. Try 1000, 625. }
+var g;
+
+procedure gcd(a, b);
+begin
+  !a; !' ';
+  if b = 0 then g := a;
+  if b > 0 then
+    call gcd(b, a - int(a / b) * b)
+end;
+
+procedure show(a, b);
+begin
+  call gcd(a, b);
+  !'-> '; !g; !
+end;
+
+begin
+  call show(1071, 462);
+  call show(1989, 867);
+  call show(360, 84);
+  call show(144, 89)
+end.

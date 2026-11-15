@@ -1,0 +1,37 @@
+{ plot of sin(x) }
+{ x runs from -2*pi to 2*pi. Each
+  point is scaled to the screen:
+  sx pixels per unit along x and
+  80 pixels per unit along y. The
+  first moveto has the pen up, the
+  others draw a line to each point.
+  Try cos(x) or sin(2*x). }
+const pi = 3.14159265, sx = 23;
+var i, x;
+
+procedure tick(x, y, dx, dy);
+begin
+  penup; moveto(x - dx, y - dy);
+  pendown; moveto(x + dx, y + dy)
+end;
+
+begin
+  { axes with ticks at pi and 1 }
+  call tick(0, 0, 150, 0);
+  call tick(0, 0, 0, 92);
+  call tick(-2*pi*sx, 0, 0, 3);
+  call tick(-pi*sx, 0, 0, 3);
+  call tick(pi*sx, 0, 0, 3);
+  call tick(2*pi*sx, 0, 0, 3);
+  call tick(0, 80, 3, 0);
+  call tick(0, -80, 3, 0);
+  { the curve }
+  i := -48; penup;
+  while i <= 48 do
+  begin
+    x := i * pi / 24;
+    moveto(x * sx, 80 * sin(x));
+    pendown;
+    i := i + 1
+  end
+end.

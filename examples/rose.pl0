@@ -1,0 +1,22 @@
+{ rose curve }
+{ A point at angle t and distance
+  r = 95*cos(k*t) from the middle
+  (polar coordinates) draws a rose
+  with 2k petals for even k and
+  k petals for odd k.
+  Try k = 3, 5 or 6. }
+const k = 4, steps = 144,
+  pi = 3.14159265;
+var t, r, i;
+begin
+  penup;
+  i := 0;
+  while i <= steps do
+  begin
+    t := 2 * pi * i / steps;
+    r := 95 * cos(k * t);
+    moveto(r * cos(t), r * sin(t));
+    pendown;
+    i := i + 1
+  end
+end.

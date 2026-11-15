@@ -1,0 +1,36 @@
+{ Koch snowflake }
+{ A side of depth d is four sides
+  of depth d-1, a third as long,
+  with a bump in the middle. Depth
+  0 is a straight line. Three
+  sides make the snowflake.
+  Try depth 1, 2 or 4 (slow). }
+const depth = 3, len = 162;
+var i;
+
+procedure koch(len, depth);
+begin
+  if depth = 0 then forward(len);
+  if depth > 0 then
+  begin
+    call koch(len / 3, depth - 1);
+    turn(-60);
+    call koch(len / 3, depth - 1);
+    turn(120);
+    call koch(len / 3, depth - 1);
+    turn(-60);
+    call koch(len / 3, depth - 1)
+  end
+end;
+
+begin
+  penup; moveto(-len / 2, 47);
+  turn(90); pendown;
+  i := 0;
+  while i < 3 do
+  begin
+    call koch(len, depth);
+    turn(120);
+    i := i + 1
+  end
+end.
