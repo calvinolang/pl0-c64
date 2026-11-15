@@ -47,7 +47,7 @@ static void dir(void)
 {
     int k;
     uint8_t n, i, q;
-    r = dk_open("$", 0);
+    r = dk_open("$");
     code("dir open", r);
     if (r) return;
     dk_getc(); dk_getc();               /* load address */
@@ -83,7 +83,7 @@ int main(void)
     disk_init();
     code("dev", disk_dev);
     dir();
-    r = dk_open("INDEX,S,R", 2);
+    r = dk_open("INDEX,S,R");
     i = 0;
     while (r == 0 && (k = dk_getc()) >= 0 && k != '\n' && i < 40) line[i++] = (char)k;
     line[i] = 0;

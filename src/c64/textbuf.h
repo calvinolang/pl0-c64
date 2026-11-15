@@ -10,9 +10,10 @@
  * Lines and columns are 1-based. Text holds only 0x20..0x7E and '\n'. */
 #include <stdint.h>
 
-/* The C64 program does its line scans in assembly (edscreen.s), so the
- * cc65 build leaves out the textbuf line queries and vertical moves (about
- * 950 bytes; ld65 links whole objects). Define TB_LINE_SCANS to keep them.
+/* The C64 program does its line scans in assembly (edscreen.s) and reads
+ * the TextBuf fields directly, so the cc65 build leaves out the textbuf
+ * line queries, vertical moves and the small accessors (about 1,050
+ * bytes; ld65 links whole objects). Define TB_LINE_SCANS to keep them.
  * The host build and its tests always have them. */
 #if defined(__CC65__) && !defined(TB_LINE_SCANS)
 #define TB_NO_LINE_SCANS 1
@@ -61,15 +62,15 @@ const char *tb_text(TextBuf *t);
  * Characters are not filtered. */
 int  tb_set(TextBuf *t, const char *s);
 
-uint16_t tb_len(const TextBuf *t);                 /* characters */
 char     tb_at(const TextBuf *t, uint16_t i);      /* i < len, gap-aware */
 #ifndef TB_NO_LINE_SCANS
 /* Offset of the first character of 1-based line; tb_len if beyond the end.
  * A trailing '\n' starts a new, empty line. */
 uint16_t tb_offset_of_line(const TextBuf *t, uint16_t line);
 uint16_t tb_line_count(const TextBuf *t);          /* 1 for an empty buffer */
-#endif
+uint16_t tb_len(const TextBuf *t);                 /* characters */
 uint16_t tb_cursor(const TextBuf *t);
 void     tb_set_cursor(TextBuf *t, uint16_t off);  /* clamps to len */
+#endif
 
 #endif

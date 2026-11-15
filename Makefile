@@ -10,7 +10,7 @@ TEST_SRC := $(wildcard tests/test_*.c)
 TEST_BIN := $(patsubst tests/%.c,$(BUILD)/%,$(TEST_SRC))
 HDRS     := $(wildcard src/*/*.h tests/*.h)
 
-.PHONY: test host examples c64 disk c64-disk c64-editor c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples clean
+.PHONY: test host examples c64 disk c64-disk c64-app c64-mem c64-editor c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples clean
 
 test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
@@ -191,7 +191,7 @@ c64-example: host
 # main.c gets the starter text (examples/square.pl0) from a generated
 # header; pl0_tiny.prg is the same program with a 400-byte source buffer
 # for the buffer_full test (tests/vice_smoke.sh).
-APP_C64_OBJ := $(addprefix $(C64_BUILD)/,editor.o edscreen_s.o textbuf.o) \
+APP_C64_OBJ := $(addprefix $(C64_BUILD)/,editor.o edscreen_s.o textbuf.o disk.o disk_s.o picker.o picker_s.o) \
 	$(CORE_C64_OBJ) $(PLAT_C64_OBJ)
 
 $(C64_BUILD)/starter.h: examples/square.pl0 tools/pl0_to_c.py
@@ -226,11 +226,22 @@ $(BUILD)/pl0.d64: $(BUILD)/pl0.prg tools/mkdisk.py $(wildcard examples/*.pl0)
 	python3 tools/mkdisk.py $(BUILD)/pl0.prg examples $@
 
 # the KERNAL disk primitives (src/c64/disk.c) on a copy of the disk image
-$(C64_BUILD)/disk_check.prg: $(C64_BUILD)/disk_check.o $(C64_BUILD)/disk.o $(C64_BUILD)/textbuf.o $(OUT_C64_OBJ) $(C64_CFG)
-	$(call c64_link,disk_check,$(C64_BUILD)/disk_check.o $(C64_BUILD)/disk.o $(C64_BUILD)/textbuf.o $(OUT_C64_OBJ))
+DISK_C64_OBJ := $(C64_BUILD)/disk.o $(C64_BUILD)/disk_s.o $(C64_BUILD)/textbuf.o
+$(C64_BUILD)/disk_check.prg: $(C64_BUILD)/disk_check.o $(DISK_C64_OBJ) $(OUT_C64_OBJ) $(C64_CFG)
+	$(call c64_link,disk_check,$(C64_BUILD)/disk_check.o $(DISK_C64_OBJ) $(OUT_C64_OBJ))
 
 c64-disk: $(C64_BUILD)/disk_check.prg $(BUILD)/pl0.d64
 	sh tests/vice_disk.sh
+
+# the whole program with the disk (Task 15): tests/vice_app.sh (run flow,
+# picker, save/load on a 1541 with true drive emulation; several minutes)
+c64-app: $(BUILD)/pl0.prg $(BUILD)/pl0.d64 host c64-mem
+	sh tests/vice_app.sh
+
+# the memory map of build/pl0.prg: BSS must end at $$97FF at the latest
+# (the C stack starts at $$9800); prints the free bytes
+c64-mem: $(BUILD)/pl0.prg
+	python3 tools/c64_mem.py $(C64_BUILD)/pl0.map
 
 # all examples, one after the other, and a table of the C64 run times
 c64-examples: host

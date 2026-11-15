@@ -15,8 +15,10 @@ void tb_init(TextBuf *t, char *storage, uint16_t cap) {
     t->len = t->cur = t->gs = t->want = 0;
 }
 
+#ifndef TB_NO_LINE_SCANS
 uint16_t tb_len(const TextBuf *t) { return t->len; }
 uint16_t tb_cursor(const TextBuf *t) { return t->cur; }
+#endif
 
 char tb_at(const TextBuf *t, uint16_t i) {
     const char *p = t->buf + i;
@@ -41,11 +43,13 @@ static void move_gap(TextBuf *t, uint16_t off) {
     t->gs = off;
 }
 
+#ifndef TB_NO_LINE_SCANS
 void tb_set_cursor(TextBuf *t, uint16_t off) {
     if (off > t->len) off = t->len;
     t->cur = off;
     t->want = 0;
 }
+#endif
 
 int tb_insert(TextBuf *t, char c) {
     unsigned char u = (unsigned char)c;

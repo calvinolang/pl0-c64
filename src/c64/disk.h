@@ -18,6 +18,13 @@
 #define DK_TOOBIG 253   /* file longer than the text buffer */
 #define DK_EXISTS 63    /* DOS 63 FILE EXISTS (disk_save without replace) */
 
+/* nonzero if s is a valid program file name: 1..12 of A-Z 0-9 - _ . */
+uint8_t __fastcall__ disk_name_ok(const char *s);
+
+/* set by disk_load once its second pass has started: from then on the
+ * text buffer no longer holds the old text, even if the load fails */
+extern uint8_t disk_touched;
+
 extern uint8_t disk_dev;    /* device number: $BA at start-up, else 8 */
 void disk_init(void);
 
@@ -33,13 +40,21 @@ uint8_t disk_load(const char *name, TextBuf *t);
  * gives DK_EXISTS and nothing is written. */
 uint8_t disk_save(const char *name, TextBuf *t, uint8_t replace);
 
-/* Byte stream for the picker (directory, INDEX): dk_open opens fname on
- * secondary address sa (0 for "$", the directory as a BASIC listing; 2
- * for "NAME,S,R"), dk_getc returns the next byte or -1 at the end or on an
- * error, dk_close closes and returns the drive status (0 when fine). */
-uint8_t dk_open(const char *fname, uint8_t sa);
+/* KERNAL primitives (disk.s). dk_open opens fname as file 2: "$" (the
+ * directory, as a BASIC listing), NAME,S,R for input, NAME,S,W for
+ * output; 0 or a result code (then everything is closed again). dk_getc
+ * returns the next byte or -1 at the end or on an error; dk_text reads
+ * the rest as text into dst (0: only count), at most dk_lim bytes, and
+ * returns the count; dk_write sends a NUL-terminated string; dk_close
+ * closes and returns the drive status (0 when fine). dk_cmd sends a DOS
+ * command (S0:NAME) and returns the status. */
+uint8_t __fastcall__ dk_open(const char *fname);
 int dk_getc(void);
+extern uint16_t dk_lim;
+uint16_t __fastcall__ dk_text(char *dst);
+void __fastcall__ dk_write(const char *s);
 uint8_t dk_close(void);
+uint8_t __fastcall__ dk_cmd(const char *s);
 
 /* Plain message for a result code: "DISK ERROR: NO DISK", "FILE TOO BIG",
  * "DISK ERROR 21", ... in a static buffer. */

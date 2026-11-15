@@ -18,6 +18,7 @@
  * banked out. Not reentrant. */
 #include <string.h>
 #include "platform/gfx.h"
+#include "platform/gfx_c64.h"
 
 #define REG(a)  (*(volatile uint8_t *)(a))
 #define BITMAP  ((void *)0xE000)
@@ -28,7 +29,9 @@ void gfx_nmi_rti(void);                 /* gfx_c64.s: a lone RTI */
 
 static uint8_t is_open, s_dd00, s_d011, s_d016, s_d018, s_d020;
 
-void gfx_open(void)
+/* switch the VIC to the bitmap without clearing it (gfx_c64.h): the run
+ * screen toggles between a finished drawing and the text with it */
+void gfx_show(void)
 {
     if (!is_open) {
         s_dd00 = REG(0xDD00) & 3;
@@ -38,16 +41,21 @@ void gfx_open(void)
         s_d020 = REG(0xD020);
         is_open = 1;
     }
-    memset(BITMAP, 0, 8000);            /* CPU writes go to RAM under the ROM */
-    memset(MATRIX, 0x01, 1000);         /* black ink, white paper */
-    /* RESTORE (NMI) while gfx_draw has the KERNAL out would fetch the
-     * vector from RAM: make it a no-op. $FFFA lies past the bitmap. */
-    NMI_VEC = (uint16_t)gfx_nmi_rti;
     REG(0xD020) = 1;                    /* white border */
     REG(0xD018) = 0x38;                 /* matrix $CC00 (3 << 4), bitmap at +$2000 */
     REG(0xDD00) = REG(0xDD00) & 0xFC;   /* VIC bank 3: $C000-$FFFF */
     REG(0xD016) = s_d016 & 0xEF;        /* hi-res, not multicolour */
     REG(0xD011) = 0x3B;                 /* bitmap mode, screen on, 25 rows */
+}
+
+void gfx_open(void)
+{
+    memset(BITMAP, 0, 8000);            /* CPU writes go to RAM under the ROM */
+    memset(MATRIX, 0x01, 1000);         /* black ink, white paper */
+    /* RESTORE (NMI) while gfx_draw has the KERNAL out would fetch the
+     * vector from RAM: make it a no-op. $FFFA lies past the bitmap. */
+    NMI_VEC = (uint16_t)gfx_nmi_rti;
+    gfx_show();
 }
 
 void gfx_close(void)

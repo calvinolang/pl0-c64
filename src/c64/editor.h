@@ -13,7 +13,9 @@
 typedef enum { ED_RUN, ED_OPEN, ED_SAVE } EdAction;
 
 /* Edit t until the user presses F1 (ED_RUN), F3 (ED_OPEN) or F5 (ED_SAVE).
- * F7 (help) and F2 (new program) are handled inside. With err_or_null the
+ * F7 (help) and F2 (new program) are handled inside. F2 and F3 ask
+ * `DISCARD PROGRAM? (Y/N)` first when the text is modified and not empty;
+ * F3 returns only after Y. With err_or_null the
  * cursor goes to the start of that line and the message
  * `ERROR line N: text` shows on row 24 until the next key. The text may
  * have been replaced between calls (tb_set): the view is rebuilt from the
@@ -25,9 +27,11 @@ EdAction editor_run(TextBuf *t, const PL0Error *err_or_null);
 void editor_set_name(const char *name);
 const char *editor_name(void);      /* "" when unnamed */
 uint8_t editor_modified(void);      /* nonzero after any edit */
-void editor_clear_modified(void);   /* after a save or a load */
+void editor_set_modified(uint8_t m);  /* 0 after a save or a load */
+#define editor_clear_modified() editor_set_modified(0)
 /* One-off message for row 24 (at most 40 characters shown), shown by the
  * next editor_run until the next key; s must stay valid until then. */
 void editor_set_message(const char *s);
+void editor_set_alert(const char *s);   /* the same in the error colour */
 
 #endif

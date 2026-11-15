@@ -49,7 +49,7 @@
         .assert 'E' = $45 && 'a' = $61, error, "text must be ASCII: include ascii.inc"
         .export _io_text_open, _io_text_close, _io_put_str, _io_put_nl
         .export _io_putc, _io_show, _io_back, _io_scr
-        .export _io_break, _io_brk_armed
+        .export _io_break, _io_brk_armed, _io_col
         .import _memmove, pushax
         .importzp ptr1, ptr3, ptr4
 
@@ -65,6 +65,7 @@ STOPCODE = 3            ; its PETSCII code
 .bss
 pos:    .res 2          ; cursor: row*40 + col, 0..999
 col:    .res 1          ; 0..39
+_io_col = col           ; for the run screen: 0 at the start of a row
 wrap:   .res 1          ; nonzero: a character was written in column 39 and
                         ; the move to the next row is still pending
 _io_brk_armed: .res 1   ; bit 7 set: a matrix press will be reported

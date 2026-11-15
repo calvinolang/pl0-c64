@@ -99,7 +99,7 @@ static const char *const help[] = {
     "",
     "  F1          compile and run",
     "  F2          new program (SHIFT+F1)",
-    "  F3          open an example or file",
+    "  F3          open an example or program",
     "  F5          save to disk",
     "  F7          this help",
     "  RUN/STOP    stop a running program",
@@ -117,8 +117,8 @@ static const char *const help[] = {
     "  if c then s  while c do s",
     "  forward(n) turn(deg) penup pendown",
     "  [ comment ]  (SHIFT+: and SHIFT+;)",
-    "",
-    "",
+    " AFTER A RUN: SPACE drawing/text,",
+    "  any other key back to the editor",
     " PRESS ANY KEY TO RETURN"
 };
 
@@ -164,11 +164,16 @@ void editor_set_name(const char *s)
 }
 const char *editor_name(void) { return name; }
 uint8_t editor_modified(void) { return modified; }
-void editor_clear_modified(void) { modified = 0; }
+void editor_set_modified(uint8_t m) { modified = m; }
 void editor_set_message(const char *s)
 {
     msg = s;
     msgcol = C_INFO;
+}
+void editor_set_alert(const char *s)
+{
+    msg = s;
+    msgcol = C_ERROR;
 }
 
 /* the text changed from line l (starting at offset off) down */
@@ -501,24 +506,24 @@ static void clear_text(void)
     FULL();
 }
 
-/* F2: a modified, non-empty text is discarded only after Y */
-static void k_new(void)
+/* F2 and F3: a modified, non-empty text is discarded only after Y;
+ * returns nonzero if it may go */
+static uint8_t discard_ok(void)
 {
     uint8_t k;
-    if (T.len != 0 && modified) {
-        show("DISCARD PROGRAM? (Y/N)", C_ASK);
-        render();
-        for (;;) {
-            k = key_wait();
-            if (k == 0x59 || k == 0xD9) break;              /* y, Y */
-            if (k == 0x4E || k == 0xCE || k == K_STOP) {    /* n, N */
-                show(0, C_TEXT);
-                return;
-            }
+    if (T.len == 0 || !modified) return 1;
+    show("DISCARD PROGRAM? (Y/N)", C_ASK);
+    render();
+    for (;;) {
+        k = key_wait();
+        if (k == 0x59 || k == 0xD9) break;                  /* y, Y */
+        if (k == 0x4E || k == 0xCE || k == K_STOP) {        /* n, N */
+            show(0, C_TEXT);
+            return 0;
         }
-        show(0, C_TEXT);
     }
-    clear_text();
+    show(0, C_TEXT);
+    return 1;
 }
 
 /* ---- entry and exit */
@@ -587,7 +592,10 @@ EdAction editor_run(TextBuf *t, const PL0Error *err_or_null)
         if (msg) show(0, C_TEXT);       /* a message lasts until a key */
         if (k != K_UP && k != K_DOWN) want = 0;
         switch (k) {
-        case K_F1: case K_F3: case K_F5:
+        case K_F3:
+            if (!discard_ok()) break;
+            /* fall through */
+        case K_F1: case K_F5:
             RPTFLG = old_rpt;
             MODE = old_mode;
             *t = T;
@@ -595,7 +603,7 @@ EdAction editor_run(TextBuf *t, const PL0Error *err_or_null)
             if (k == K_F3) return ED_OPEN;
             return ED_SAVE;
         case K_F7:   help_screen(); break;
-        case K_F2:   k_new(); break;
+        case K_F2:   if (discard_ok()) clear_text(); break;
         case K_RETURN: case K_SRET: k_insert('\n'); break;
         case K_DEL:  k_backspace(); break;
         case K_INST: k_delete(); break;
