@@ -52,6 +52,7 @@ static void empty_program(void) { CHECK_EQ_STR(run("."), ""); }
 static void comment_only_then_period(void) { CHECK_EQ_STR(run("{x} ."), ""); }
 static void missing_period(void) { CHECK_EQ_STR(run("begin end"), "ERROR line 1: \".\" expected"); }
 static void undeclared(void) { CHECK_EQ_STR(run("!x."), "ERROR line 1: undeclared name"); }
+static void string_too_long(void) { CHECK_EQ_STR(run("!'abcdefghijklmnopq'."), "ERROR line 1: string too long (max 16)"); }
 static void assign_to_const(void) {
     PL0Error e;
     CHECK_EQ_INT(pl0_compile("const a=1; a:=2.", &prog, &e), 1);
@@ -571,6 +572,7 @@ int main(void) {
     comment_only_then_period();
     missing_period();
     undeclared();
+    string_too_long();
     assign_to_const();
     redeclared();
     error_line_number();

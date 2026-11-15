@@ -103,7 +103,7 @@ void lex_next(Lexer *lx) {
         n = 0;
         while (s[lx->pos] != '\'') {
             if (!s[lx->pos] || s[lx->pos] == '\n') { fail(lx, E_STRING); return; }
-            if (n >= TEXT_MAX) { fail(lx, E_STRING); return; }
+            if (n >= TEXT_MAX) { fail(lx, E_STRING_LONG); return; }
             lx->text[n++] = s[lx->pos++];
         }
         lx->pos++;

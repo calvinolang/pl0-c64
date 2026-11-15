@@ -42,7 +42,7 @@ static void strings(void) {
     first(&lx, "'Hi There'"); CHECK_EQ_INT(lx.tok, T_STRING); CHECK(strcmp(lx.text, "Hi There") == 0);
     first(&lx, "''"); CHECK_EQ_INT(lx.tok, T_STRING); CHECK(lx.text[0] == 0);
     first(&lx, "'1234567890123456'"); CHECK_EQ_INT(lx.tok, T_STRING);
-    first(&lx, "'12345678901234567'"); CHECK_EQ_INT(lx.tok, T_ERROR); CHECK_EQ_INT(lx.err, E_STRING);
+    first(&lx, "'12345678901234567'"); CHECK_EQ_INT(lx.tok, T_ERROR); CHECK_EQ_INT(lx.err, E_STRING_LONG);
 }
 
 static void unterminated_string(void) {

@@ -32,7 +32,8 @@ static const char *const err_msgs[E_COUNT] = {
     /* E_OVERFLOW */        "number overflow",
     /* E_STACK */           "stack overflow (too deep)",
     /* E_STOPPED */         "stopped",
-    /* E_BAD_INPUT */       "bad input"
+    /* E_BAD_INPUT */       "bad input",
+    /* E_STRING_LONG */     "string too long (max 16)"
 };
 
 const char *err_text(uint8_t code) {
