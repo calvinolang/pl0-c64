@@ -28,10 +28,16 @@
  *   WRL  print a newline
  *   FN   lvl = NUMFN_* function, arg = source line; replaces the top by
  *        fn(top) (domain error -> E_DOMAIN, overflow -> E_OVERFLOW)
+ *   TUR  lvl = TUR_* turtle operation, arg = source line; pops its operands
+ *        (forward/turn: 1, moveto: 2 with x below y, others 0); overflow ->
+ *        E_OVERFLOW
  *   RED  arg = source line; push a number read from input (E_BAD_INPUT)
  */
 enum { OP_LIT, OP_OPR, OP_LOD, OP_STO, OP_CAL, OP_INT, OP_JMP, OP_JPC,
-       OP_WRN, OP_WRS, OP_WRL, OP_RED, OP_FN };
+       OP_WRN, OP_WRS, OP_WRL, OP_RED, OP_FN, OP_TUR };
+
+/* TUR operations (stored in Instr.lvl) */
+enum { TUR_FORWARD, TUR_TURN, TUR_PENUP, TUR_PENDOWN, TUR_HOME, TUR_MOVETO };
 
 /* OPR sub-operations (stored in Instr.lvl), Wirth's numbering. */
 enum { OPR_RET, OPR_NEG, OPR_ADD, OPR_SUB, OPR_MUL, OPR_DIV, OPR_ODD,

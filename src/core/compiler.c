@@ -365,6 +365,41 @@ static void statement(void)
             --depth;
         }
         break;
+    case T_FORWARD:
+    case T_TURN:
+        /* forward "(" expression ")": the argument counts as a nesting level
+         * like a function call's */
+        line = lx.line;
+        n = lx.tok == T_FORWARD ? TUR_FORWARD : TUR_TURN;
+        if (++nest > MAX_EXPR_NEST) fail(E_NESTING);
+        next();
+        expect(T_LPAREN, E_EXPECTED_LPAREN);
+        expression();
+        expect(T_RPAREN, E_EXPECTED_RPAREN);
+        emit(OP_TUR, n, (int16_t)line);
+        --depth;
+        --nest;
+        break;
+    case T_MOVETO:
+        line = lx.line;
+        if (++nest > MAX_EXPR_NEST) fail(E_NESTING);
+        next();
+        expect(T_LPAREN, E_EXPECTED_LPAREN);
+        expression();
+        expect(T_COMMA, E_EXPECTED_RPAREN);   /* no separate message for ","; see notes */
+        expression();
+        expect(T_RPAREN, E_EXPECTED_RPAREN);
+        emit(OP_TUR, TUR_MOVETO, (int16_t)line);
+        depth -= 2;
+        --nest;
+        break;
+    case T_PENUP:
+    case T_PENDOWN:
+    case T_HOME:
+        emit(OP_TUR, lx.tok == T_PENUP ? TUR_PENUP : lx.tok == T_PENDOWN ? TUR_PENDOWN : TUR_HOME,
+             (int16_t)lx.line);
+        next();
+        break;
     default:
         break;                            /* empty statement */
     }

@@ -17,6 +17,7 @@
  * Frame header cells hold raw pointers (memcpy, no num_t semantics). */
 #include <string.h>
 #include "core/vm.h"
+#include "core/turtle.h"
 #include "platform/io.h"
 
 #define CELL_AT(base, off) ((num_t *)((char *)(base) + (off)))
@@ -64,6 +65,7 @@ int pl0_run(const Program *p, PL0Error *err)
     err->code = E_NONE;
     err->line = 0;
     disp[0] = stack;
+    turtle_reset();
 #ifdef PL0_TEST_HOOKS
     high = sp;
 #endif
@@ -181,6 +183,26 @@ int pl0_run(const Program *p, PL0Error *err)
         case OP_FN:
             c = num_fn(ip->lvl, sp - 1, sp - 1);
             if (c) return fail(err, c == 1 ? E_DOMAIN : E_OVERFLOW, ip->arg);
+            break;
+        case OP_TUR:
+            switch (ip->lvl) {
+            case TUR_FORWARD:
+                --sp;
+                c = turtle_forward(sp);
+                break;
+            case TUR_TURN:
+                --sp;
+                c = turtle_turn(sp);
+                break;
+            case TUR_MOVETO:
+                sp -= 2;
+                c = turtle_moveto(sp, sp + 1);
+                break;
+            case TUR_PENUP:   turtle_penup(); c = 0; break;
+            case TUR_PENDOWN: turtle_pendown(); c = 0; break;
+            default:          turtle_home(); c = 0; break;
+            }
+            if (c) return fail(err, E_OVERFLOW, ip->arg);
             break;
         case OP_RED:
             if (io_read_num(sp)) return fail(err, E_BAD_INPUT, ip->arg);
