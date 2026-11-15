@@ -27,7 +27,8 @@ Options (all may be repeated or combined):
                      writes a step number to $02A7 and waits until $02A8
                      equals it. For each new step n the harness saves all
                      64 KB of RAM (`bank ram`) to OUTDIR/snapN.bin, then
-                     writes n to $02A8 and resumes.
+                     writes n to $02A8 and resumes; OUTDIR/stepN.png is a
+                     VICE screenshot taken at the same moment.
 The last decoded screen is printed and written to OUTDIR/screen.txt, the
 monitor session to OUTDIR/monitor.log, VICE's own output to OUTDIR/vice.log.
 """
@@ -127,6 +128,7 @@ def main():
                 if len(st) == 1 and st[0] > acked:
                     n = st[0]
                     save(os.path.join(outdir, f"snap{n}.bin"), 0x0000, 0xFFFF)
+                    command(f'screenshot "{outdir}/step{n}.png" 2')
                     command(f"> {ACK:04x} {n:02x}")
                     acked = n
             if len(data) == 1000:

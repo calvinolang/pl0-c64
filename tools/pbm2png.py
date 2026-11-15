@@ -46,4 +46,5 @@ def main():
     write_png(sys.argv[2], w, h, bits, int(sys.argv[3]) if len(sys.argv) == 4 else 1)
 
 
-main()
+if __name__ == "__main__":
+    main()

@@ -10,7 +10,7 @@ TEST_SRC := $(wildcard tests/test_*.c)
 TEST_BIN := $(patsubst tests/%.c,$(BUILD)/%,$(TEST_SRC))
 HDRS     := $(wildcard src/*/*.h tests/*.h)
 
-.PHONY: test host examples c64 c64-tests c64-num clean
+.PHONY: test host examples c64 c64-tests c64-num c64-gfx c64-io clean
 
 test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
@@ -52,29 +52,59 @@ C64_CFG     := src/c64/pl0-c64.cfg
 C64_CCFLAGS := -t c64 -O -Isrc -W +error
 NUM_C64_OBJ := $(C64_BUILD)/num_c64.o $(C64_BUILD)/num_c64_s.o
 C64_NUM_CYCLES ?= 100000000
+C64_GFX_CYCLES ?= 100000000
+C64_IO_CYCLES  ?= 200000000
 
-$(C64_BUILD)/num_c64.o: src/c64/num_c64.c src/platform/num.h
+# Pattern rules: src/c64/X.c -> X.o, src/c64/X.s -> X_s.o, tests/c64/X.c -> X.o
+$(C64_BUILD)/%.o: src/c64/%.c $(HDRS)
 	@mkdir -p $(C64_BUILD)
-	$(CC65) $(C64_CCFLAGS) -o $(C64_BUILD)/num_c64.c.s $<
-	$(CA65) -t c64 -o $@ $(C64_BUILD)/num_c64.c.s
+	$(CC65) $(C64_CCFLAGS) -o $(C64_BUILD)/$*.c.s $<
+	$(CA65) -t c64 -o $@ $(C64_BUILD)/$*.c.s
 
-$(C64_BUILD)/num_c64_s.o: src/c64/num_c64.s
+$(C64_BUILD)/%_s.o: src/c64/%.s
 	@mkdir -p $(C64_BUILD)
 	$(CA65) -t c64 -o $@ $<
 
-$(C64_BUILD)/num_check.o: tests/c64/num_check.c tests/c64/num_vectors.h src/platform/num.h
+$(C64_BUILD)/%.o: tests/c64/%.c tests/c64/*.h $(HDRS)
 	@mkdir -p $(C64_BUILD)
-	$(CC65) $(C64_CCFLAGS) -o $(C64_BUILD)/num_check.c.s $<
-	$(CA65) -t c64 -o $@ $(C64_BUILD)/num_check.c.s
+	$(CC65) $(C64_CCFLAGS) -o $(C64_BUILD)/$*.c.s $<
+	$(CA65) -t c64 -o $@ $(C64_BUILD)/$*.c.s
+
+$(C64_BUILD)/clip.o: src/core/clip.c src/core/clip.h
+	@mkdir -p $(C64_BUILD)
+	$(CC65) $(C64_CCFLAGS) -o $(C64_BUILD)/clip.c.s $<
+	$(CA65) -t c64 -o $@ $(C64_BUILD)/clip.c.s
+
+# link a check program: $(call c64_link,name,objects)
+c64_link = $(CL65) -t c64 -C $(C64_CFG) -m $(C64_BUILD)/$(1).map -Ln $(C64_BUILD)/$(1).lbl -o $(C64_BUILD)/$(1).prg $(2)
+
+GFX_C64_OBJ := $(C64_BUILD)/gfx_c64.o $(C64_BUILD)/gfx_c64_s.o $(C64_BUILD)/clip.o
+IO_C64_OBJ  := $(C64_BUILD)/io_c64.o $(C64_BUILD)/io_c64_s.o
 
 $(C64_BUILD)/num_check.prg: $(C64_BUILD)/num_check.o $(NUM_C64_OBJ) $(C64_CFG)
-	$(CL65) -t c64 -C $(C64_CFG) -m $(C64_BUILD)/num_check.map -Ln $(C64_BUILD)/num_check.lbl \
-	  -o $@ $(C64_BUILD)/num_check.o $(NUM_C64_OBJ)
+	$(call c64_link,num_check,$(C64_BUILD)/num_check.o $(NUM_C64_OBJ))
 
-c64-tests: $(C64_BUILD)/num_check.prg
+$(C64_BUILD)/gfx_check.prg: $(C64_BUILD)/gfx_check.o $(GFX_C64_OBJ) $(C64_CFG)
+	$(call c64_link,gfx_check,$(C64_BUILD)/gfx_check.o $(GFX_C64_OBJ))
 
-c64-num: c64-tests
+$(C64_BUILD)/io_check.prg: $(C64_BUILD)/io_check.o $(IO_C64_OBJ) $(NUM_C64_OBJ) $(C64_CFG)
+	$(call c64_link,io_check,$(C64_BUILD)/io_check.o $(IO_C64_OBJ) $(NUM_C64_OBJ))
+
+# host reference bitmap for c64-gfx (same lines, host renderer + clipper)
+$(BUILD)/gfx_ref: tests/c64/gfx_ref.c tests/c64/gfx_lines.h src/core/clip.c src/host/gfx_host.c $(HDRS)
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/c64/gfx_ref.c src/core/clip.c src/host/gfx_host.c
+
+c64-tests: $(C64_BUILD)/num_check.prg $(C64_BUILD)/gfx_check.prg
+
+c64-num: $(C64_BUILD)/num_check.prg
 	sh tests/vice_run.sh $(C64_BUILD)/num_check.prg PASS $(C64_NUM_CYCLES) FAIL
+
+c64-gfx: $(C64_BUILD)/gfx_check.prg $(BUILD)/gfx_ref
+	$(BUILD)/gfx_ref $(C64_BUILD)/gfx_ref
+	sh tests/vice_run.sh --snap \
+	  --check "python3 tools/check_bitmap.py --ref $(C64_BUILD)/gfx_ref --lbl $(C64_BUILD)/gfx_check.lbl" \
+	  $(C64_BUILD)/gfx_check.prg PASS $(C64_GFX_CYCLES) FAIL
 
 clean:
 	$(RM) -r $(BUILD)
