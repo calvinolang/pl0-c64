@@ -110,8 +110,9 @@ Source limit: 1000 bytes; lines at most 38 characters.
 clipping); "Extent" is the bounding box of the drawing in pixel
 coordinates as the recorder dumps them (screen: x 0..319, y 0..199 from
 the top; the turtle's x -160..159, y 99..-100).
-"C64 s" is the run time of `pl0_run` on a PAL C64 in VICE (CPU cycles
-from the CIA2 timers / 985248; compile time not included), recorded by
+"C64 s" is the time from F1 to the end of the program on a PAL C64 in
+VICE: `pl0_compile` plus `pl0_run` (CPU cycles from the CIA2 timers /
+985248), recorded by
 `tests/c64_examples.sh --record` in `c64-times.tsv` next to this file
 (`make c64-examples` runs them; the spec asks for about 30 s or less).
 

@@ -25,6 +25,7 @@
 ; this file) do not use ROM FIN/FOUT, which lose the last bits.
 
         .include "ascii.inc"   ; ASCII character constants
+        .assert 'E' = $45 && 'a' = $61, error, "text must be ASCII: include ascii.inc"
         .export _fp_call, _num_copy, _fp_a, _fp_y
         .import popa, popax
         .importzp ptr1, ptr2

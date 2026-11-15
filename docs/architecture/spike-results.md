@@ -558,10 +558,14 @@ the "C64 s" column of `examples-budget.md`.
   `#include "<source>"`); this covers src/core, src/c64 and tests/c64
   alike. Assembly sources include `src/c64/ascii.inc` (an identity
   `.charmap` for 1..255), so `'E'` assembles to $45.
-- Guard: `src/core/ascii.h` holds a typedef whose array size is negative
-  unless `'a'`, `'z'`, `'A'`, `'E'`, `'\n'` and `'0'` are ASCII, so a
-  PETSCII build of `lexer.c`, `errors.c`, `turtle.c`, `num_c64.c` or
-  `io_c64.c` does not compile (written with XOR: cc65 2.18 rejects `==` in an
+- The wrapper is the real mechanism; the guard is a backstop and opt-in
+  per file: `src/core/ascii.h` holds a typedef whose array size is
+  negative unless `'a'`, `'z'`, `'A'`, `'E'`, `'\n'` and `'0'` are ASCII,
+  so a PETSCII build of a file that includes it (`lexer.c`, `errors.c`,
+  `turtle.c`, `num_c64.c`, `io_c64.c`) does not compile. A file that does
+  not include `ascii.h` gets no such check. The assembly sources with
+  text constants (`num_c64.s`, `io_c64.s`) carry
+  `.assert 'E' = $45 && 'a' = $61, error, ...` the same way (written with XOR: cc65 2.18 rejects `==` in an
   array size and warns "Result of comparison is constant").
 - Never use `<ctype.h>` in portable code: cc65's tables follow the target
   charset (`isalpha(0x61)` is false on the C64). `src/core/ascii.h` has

@@ -15,25 +15,26 @@ Source limit: 1000 bytes; lines at most 38 characters.
 clipping); "Extent" is the bounding box of the drawing in pixel
 coordinates as the recorder dumps them (screen: x 0..319, y 0..199 from
 the top; the turtle's x -160..159, y 99..-100).
-"C64 s" is the run time of `pl0_run` on a PAL C64 in VICE (CPU cycles
-from the CIA2 timers / 985248; compile time not included), recorded by
+"C64 s" is the time from F1 to the end of the program on a PAL C64 in
+VICE: `pl0_compile` plus `pl0_run` (CPU cycles from the CIA2 timers /
+985248), recorded by
 `tests/c64_examples.sh --record` in `c64-times.tsv` next to this file
 (`make c64-examples` runs them; the spec asks for about 30 s or less).
 
 | Example | Kind | Source bytes | P-code instructions | Functions | Turn trig | Lines | Extent (x; y) | C64 s |
 |---------|------|-------------:|--------------------:|----------:|----------:|------:|---------------|------:|
-| FACTORIAL | text | 471 | 1,761 | 0 | 0 | - | - | 2.54 |
-| GCD | text | 522 | 571 | 20 | 0 | - | - | 1.29 |
-| KOCH | drawing | 700 | 5,263 | 0 | 386 | 192 | 79..241; 5..192 | 24.86 |
-| LISSAJOUS | drawing | 388 | 3,608 | 240 | 0 | 120 | 10..310; 9..189 | 13.81 |
-| NEWTON | text | 470 | 201 | 1 | 0 | - | - | 0.73 |
-| PI | text | 889 | 15,960 | 1 | 0 | - | - | 22.42 |
-| POLYGON | drawing | 455 | 145 | 2 | 16 | 7 | 72..248; 9..180 | 1.17 |
-| PRIMES | text | 738 | 9,011 | 252 | 0 | - | - | 12.24 |
-| ROSE | drawing | 438 | 4,939 | 435 | 0 | 144 | 65..255; 4..194 | 21.32 |
-| SIERPINSKI | drawing | 616 | 4,484 | 0 | 0 | 243 | 52..268; 6..193 | 9.17 |
-| SINE | drawing | 828 | 2,538 | 97 | 0 | 104 | 10..310; 7..191 | 7.66 |
-| SPIRAL | drawing | 368 | 554 | 0 | 84 | 42 | 70..252; 8..191 | 4.96 |
-| SQUARE | drawing | 379 | 67 | 0 | 8 | 4 | 80..240; 19..179 | 0.59 |
-| STAR | drawing | 513 | 185 | 1 | 20 | 9 | 66..254; 4..188 | 1.48 |
-| TREE | drawing | 555 | 3,175 | 0 | 378 | 127 | 46..274; 9..194 | 21.13 |
+| FACTORIAL | text | 471 | 1,761 | 0 | 0 | - | - | 3.27 |
+| GCD | text | 522 | 571 | 20 | 0 | - | - | 2.21 |
+| KOCH | drawing | 700 | 5,263 | 0 | 386 | 192 | 79..241; 5..192 | 26.15 |
+| LISSAJOUS | drawing | 388 | 3,608 | 240 | 0 | 120 | 10..310; 9..189 | 14.49 |
+| NEWTON | text | 470 | 201 | 1 | 0 | - | - | 1.44 |
+| PI | text | 889 | 15,960 | 1 | 0 | - | - | 24.36 |
+| POLYGON | drawing | 455 | 145 | 2 | 16 | 7 | 72..248; 9..180 | 1.96 |
+| PRIMES | text | 738 | 9,011 | 252 | 0 | - | - | 13.73 |
+| ROSE | drawing | 438 | 4,939 | 435 | 0 | 144 | 65..255; 4..194 | 22.07 |
+| SIERPINSKI | drawing | 616 | 4,484 | 0 | 0 | 243 | 52..268; 6..193 | 10.47 |
+| SINE | drawing | 828 | 2,538 | 97 | 0 | 104 | 10..310; 7..191 | 9.32 |
+| SPIRAL | drawing | 368 | 554 | 0 | 84 | 42 | 70..252; 8..191 | 5.42 |
+| SQUARE | drawing | 379 | 67 | 0 | 8 | 4 | 80..240; 19..179 | 1.04 |
+| STAR | drawing | 513 | 185 | 1 | 20 | 9 | 66..254; 4..188 | 2.35 |
+| TREE | drawing | 555 | 3,175 | 0 | 378 | 127 | 46..274; 9..194 | 22.07 |

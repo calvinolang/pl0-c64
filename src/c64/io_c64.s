@@ -46,6 +46,7 @@
 
 
         .include "ascii.inc"   ; ASCII character constants
+        .assert 'E' = $45 && 'a' = $61, error, "text must be ASCII: include ascii.inc"
         .export _io_text_open, _io_text_close, _io_put_str, _io_put_nl
         .export _io_putc, _io_show, _io_back, _io_scr
         .export _io_break, _io_brk_armed
