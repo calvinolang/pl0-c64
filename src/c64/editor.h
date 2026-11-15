@@ -26,7 +26,8 @@ EdAction editor_run(TextBuf *t, const PL0Error *err_or_null);
 /* NULL or "" means unnamed (the bar shows NEW). Longer names are cut. */
 void editor_set_name(const char *name);
 const char *editor_name(void);      /* "" when unnamed */
-uint8_t editor_modified(void);      /* nonzero after any edit */
+/* the modified flag (set by any edit; the editor reads it itself for
+ * F2 and F3, so there is no getter: it would cost bytes unused) */
 void editor_set_modified(uint8_t m);  /* 0 after a save or a load */
 #define editor_clear_modified() editor_set_modified(0)
 /* One-off message for row 24 (at most 40 characters shown), shown by the

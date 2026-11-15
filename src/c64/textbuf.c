@@ -4,8 +4,9 @@
 /* Gap buffer. Portable C; no heap, no recursion, no multiplication/division.
  * cc65 notes: declarations at block start; no `x = c == K ? K2 : c;` and no
  * (int16_t)uchar - uchar (both miscompile under -O, see spike-results.md);
- * all counts are uint16_t. Scans walk the two segments with plain pointers
- * (much smaller and faster than per-character index arithmetic on cc65). */
+ * all counts are uint16_t. The line scans below use tb_at per character:
+ * on cc65 that measured smaller than walking the two segments with
+ * pointers (the editor's speed-critical scans are in edscreen.s). */
 
 #define GAP(t) ((uint16_t)((t)->cap - (t)->len))
 

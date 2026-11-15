@@ -5,7 +5,7 @@
 /* Platform number interface. All operations take pointers so a 5-byte
  * float type on the C64 can be passed without struct-by-value cost.
  * The representation is chosen here: cc65 builds get an opaque 5-byte
- * value (implemented in a C64 num source later); everything else
+ * value (implemented in src/c64/num_c64.c and num_c64.s); everything else
  * (host builds and tests) uses double. Callers must treat num_t as opaque.
  * The result pointer r may alias an operand (the VM computes in place). */
 #ifdef __CC65__

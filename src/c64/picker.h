@@ -14,7 +14,9 @@
 /* Read INDEX and the directory into list (at most max entries of
  * PICK_ROW bytes; the
  * caller lends memory: main.c's idle Program), show the list and let the
- * user choose. Returns 0 with the chosen name in name (13 bytes), PK_BACK,
+ * user choose. Returns 0 with the chosen name in name (at most 12
+ * characters and the 0: name must hold 13 bytes; main.c passes its
+ * 17-byte SAVE AS field), PK_BACK,
  * PK_EMPTY, or a disk result code (disk.h) when the disk cannot be read. */
 uint8_t picker_run(char *list, uint8_t max, char *name);
 

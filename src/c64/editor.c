@@ -163,7 +163,6 @@ void editor_set_name(const char *s)
     }
 }
 const char *editor_name(void) { return name; }
-uint8_t editor_modified(void) { return modified; }
 void editor_set_modified(uint8_t m) { modified = m; }
 void editor_set_message(const char *s)
 {
