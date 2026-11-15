@@ -24,6 +24,7 @@
 ; plus its own $22-$2A and $57-$70. num_parse and num_format (at the end of
 ; this file) do not use ROM FIN/FOUT, which lose the last bits.
 
+        .include "ascii.inc"   ; ASCII character constants
         .export _fp_call, _num_copy, _fp_a, _fp_y
         .import popa, popax
         .importzp ptr1, ptr2
@@ -271,13 +272,12 @@ trim:   ldx     _blen
 ; ---- exact conversions: num_parse and num_format ------------------------
 ; The methods are described at the end of num_c64.c (exact bignum
 ; arithmetic, round half to even); written in assembly because the cc65 C
-; version was about 2 KB larger. Characters: digits . + - are ASCII in PETSCII too;
-; the exponent letter is $45 ('e' in cc65 C strings) or $C5 ('E').
+; version was about 2 KB larger. Text is ASCII (ascii.inc): the exponent
+; letter is read as 'e' or 'E' and written as 'E', as on the host.
 
         .export _num_parse, _num_format
         .importzp ptr3, ptr4
 
-CH_E    = $C5           ; cc65's 'E' (PETSCII shifted E, prints as E)
 
 .bss
 fa:     .res 5          ; working copy of the operand
@@ -407,9 +407,9 @@ _num_parse:
         bne     @hasd
         jmp     perr
 @hasd:  lda     (ptr4),y
-        cmp     #$45
+        cmp     #'E'
         beq     @exp
-        cmp     #CH_E
+        cmp     #'e'
         bne     @noexp
 @exp:   iny
         jsr     psign
@@ -859,7 +859,7 @@ _num_format:
         jsr     emit
         inc     gi
         jsr     drest
-@noe:   lda     #CH_E
+@noe:   lda     #'E'
         jsr     emit
         dec     xexp
         lda     xexp

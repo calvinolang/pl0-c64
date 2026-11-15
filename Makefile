@@ -56,25 +56,35 @@ C64_NUM_CYCLES ?= 100000000
 C64_GFX_CYCLES ?= 100000000
 C64_IO_CYCLES  ?= 200000000
 
-# Pattern rules: src/c64/X.c -> X.o, src/c64/X.s -> X_s.o, tests/c64/X.c -> X.o
-$(C64_BUILD)/%.o: src/c64/%.c $(HDRS)
-	@mkdir -p $(C64_BUILD)
-	$(CC65) $(C64_CCFLAGS) -o $(C64_BUILD)/$*.c.s $<
-	$(CA65) -t c64 -o $@ $(C64_BUILD)/$*.c.s
+# Text is ASCII on the C64 too (src/core/ascii.h): every C source is
+# compiled with cc65's identity charmap. cc65 has no forced-include option,
+# so make writes a one-line wrapper build/c64/X.ascii.c,
+#   #include <ascii_charmap.h>
+#   #include "<path of the source>"
+# and compiles that (-I. so the path resolves; the source's own quoted
+# includes still resolve next to it). Assembly sources include
+# src/c64/ascii.inc instead. cc65 stdio (printf) parses its format letters
+# in PETSCII, so C64 programs print through io_put_str, never printf.
+# $(call c64_cc,source,object name)
+c64_cc = mkdir -p $(C64_BUILD) && \
+	printf '\043include <ascii_charmap.h>\n\043include "%s"\n' $(1) > $(C64_BUILD)/$(2).ascii.c && \
+	$(CC65) $(C64_CCFLAGS) -I. -o $(C64_BUILD)/$(2).c.s $(C64_BUILD)/$(2).ascii.c && \
+	$(CA65) -t c64 -o $(C64_BUILD)/$(2).o $(C64_BUILD)/$(2).c.s
 
-$(C64_BUILD)/%_s.o: src/c64/%.s
+# Pattern rules: src/c64/X.c -> X.o, src/c64/X.s -> X_s.o,
+# src/core/X.c -> X.o, tests/c64/X.c -> X.o
+$(C64_BUILD)/%.o: src/c64/%.c $(HDRS)
+	$(call c64_cc,$<,$*)
+
+$(C64_BUILD)/%_s.o: src/c64/%.s src/c64/ascii.inc
 	@mkdir -p $(C64_BUILD)
-	$(CA65) -t c64 -o $@ $<
+	$(CA65) -t c64 -I src/c64 -o $@ $<
+
+$(C64_BUILD)/%.o: src/core/%.c $(HDRS)
+	$(call c64_cc,$<,$*)
 
 $(C64_BUILD)/%.o: tests/c64/%.c tests/c64/*.h $(HDRS)
-	@mkdir -p $(C64_BUILD)
-	$(CC65) $(C64_CCFLAGS) -o $(C64_BUILD)/$*.c.s $<
-	$(CA65) -t c64 -o $@ $(C64_BUILD)/$*.c.s
-
-$(C64_BUILD)/clip.o: src/core/clip.c src/core/clip.h
-	@mkdir -p $(C64_BUILD)
-	$(CC65) $(C64_CCFLAGS) -o $(C64_BUILD)/clip.c.s $<
-	$(CA65) -t c64 -o $@ $(C64_BUILD)/clip.c.s
+	$(call c64_cc,$<,$*)
 
 # link a check program: $(call c64_link,name,objects)
 c64_link = $(CL65) -t c64 -C $(C64_CFG) -m $(C64_BUILD)/$(1).map -Ln $(C64_BUILD)/$(1).lbl -o $(C64_BUILD)/$(1).prg $(2)
@@ -82,11 +92,14 @@ c64_link = $(CL65) -t c64 -C $(C64_CFG) -m $(C64_BUILD)/$(1).map -Ln $(C64_BUILD
 GFX_C64_OBJ := $(C64_BUILD)/gfx_c64.o $(C64_BUILD)/gfx_c64_s.o $(C64_BUILD)/clip.o
 IO_C64_OBJ  := $(C64_BUILD)/io_c64.o $(C64_BUILD)/io_c64_s.o
 
-$(C64_BUILD)/num_check.prg: $(C64_BUILD)/num_check.o $(NUM_C64_OBJ) $(C64_CFG)
-	$(call c64_link,num_check,$(C64_BUILD)/num_check.o $(NUM_C64_OBJ))
+# out.c prints through io_c64, whose io_read_num needs the number layer
+OUT_C64_OBJ := $(C64_BUILD)/out.o $(IO_C64_OBJ) $(NUM_C64_OBJ)
 
-$(C64_BUILD)/gfx_check.prg: $(C64_BUILD)/gfx_check.o $(GFX_C64_OBJ) $(C64_CFG)
-	$(call c64_link,gfx_check,$(C64_BUILD)/gfx_check.o $(GFX_C64_OBJ))
+$(C64_BUILD)/num_check.prg: $(C64_BUILD)/num_check.o $(OUT_C64_OBJ) $(C64_CFG)
+	$(call c64_link,num_check,$(C64_BUILD)/num_check.o $(OUT_C64_OBJ))
+
+$(C64_BUILD)/gfx_check.prg: $(C64_BUILD)/gfx_check.o $(GFX_C64_OBJ) $(OUT_C64_OBJ) $(C64_CFG)
+	$(call c64_link,gfx_check,$(C64_BUILD)/gfx_check.o $(GFX_C64_OBJ) $(OUT_C64_OBJ))
 
 $(C64_BUILD)/io_check.prg: $(C64_BUILD)/io_check.o $(IO_C64_OBJ) $(NUM_C64_OBJ) $(C64_CFG)
 	$(call c64_link,io_check,$(C64_BUILD)/io_check.o $(IO_C64_OBJ) $(NUM_C64_OBJ))

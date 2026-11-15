@@ -1,5 +1,6 @@
 #include "core/lexer.h"
 #include "core/errors.h"
+#include "core/ascii.h"
 #include <string.h>
 
 #define TEXT_MAX 16
@@ -16,8 +17,9 @@ static const Keyword keywords[] = {
     { "var", T_VAR }, { "while", T_WHILE }
 };
 
-static int is_digit(char c) { return c >= '0' && c <= '9'; }
-static int is_alpha(char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
+/* ASCII only, whatever the compiler's charset (core/ascii.h) */
+static int is_digit(char c) { return ASCII_IS_DIGIT(c); }
+static int is_alpha(char c) { return ASCII_IS_ALPHA(c); }
 
 void lex_init(Lexer *lx, const char *src) {
     lx->src = src;
@@ -63,7 +65,8 @@ void lex_next(Lexer *lx) {
         while (is_alpha(s[lx->pos]) || is_digit(s[lx->pos])) {
             char d = s[lx->pos++];
             if (n >= TEXT_MAX) { fail(lx, E_IDENT_LONG); lx->text[0] = 0; goto skip_ident; }
-            lx->text[n++] = (d >= 'A' && d <= 'Z') ? (char)(d + 32) : d;
+            if (ASCII_IS_UPPER(d)) d += ASCII_CASE_BIT;   /* an if, not ?: (cc65 -O bug) */
+            lx->text[n++] = d;
         }
         lx->text[n] = 0;
         lx->tok = T_IDENT;

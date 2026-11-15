@@ -14,6 +14,7 @@
  * the screen; the result is then well inside int16. */
 #include "core/turtle.h"
 #include "platform/gfx.h"
+#include "core/ascii.h"     /* the constant literals are ASCII */
 
 static num_t tx, ty;            /* position (turtle coordinates) */
 static num_t th;                /* heading in degrees, 0 <= th < 360 */

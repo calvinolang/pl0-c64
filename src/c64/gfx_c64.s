@@ -31,6 +31,7 @@
 ; scans) across gfx_line calls. An NMI (RESTORE) in that
 ; window vectors through RAM $FFFA, which gfx_open points at gfx_nmi_rti.
 
+        .include "ascii.inc"   ; ASCII character constants
         .export _gfx_line, _gfx_nmi_rti
         .import _clip_line, popax, pushax
         .importzp ptr1, ptr2, ptr3, tmp1, tmp2, tmp3

@@ -10,17 +10,18 @@
  * echoed at the cursor, which shows as a reverse-video space. RETURN ends,
  * DEL erases, RUN/STOP (code 3) gives up: bad input (and the press is
  * used up for io_break). Keys arrive in PETSCII: unshifted letters $41-$5A
- * are lower case, shifted $C1-$DA upper case; both are stored as ASCII,
- * except that e is stored as E ($45), because num_parse (num_c64.s) takes
- * the exponent letter only as $45 or $C5. Leading and trailing spaces are
+ * are lower case, shifted $C1-$DA upper case; both are stored as ASCII
+ * (this is the keyboard boundary: PETSCII in, ASCII out; num_parse takes
+ * 'e' and 'E' like the host). Leading and trailing spaces are
  * skipped (as the host io_read_num skips white space). A leading - is
  * handled here and the rest parsed and negated; a second sign after it
  * (--3, -+3) is bad input, while a plain +3 is passed to num_parse, which
  * takes it like the host's strtod. Empty or malformed input returns 1.
- * This file is compiled with the default cc65 PETSCII charmap, so
- * character values are written as numbers, never as 'x' literals.
+ * Like every C64 source this file is compiled with the ASCII charmap
+ * (Makefile); the PETSCII key codes are written as numbers.
  * Not reentrant. */
 #include <conio.h>
+#include "core/ascii.h"
 #include "platform/io.h"
 #include "platform/io_c64.h"
 
@@ -58,7 +59,6 @@ int io_read_num(num_t *r)
         else if (c < 0x20 || c > 0x3F) continue;    /* no other keys */
         if (n < MAXIN) {
             io_putc(c);
-            if (c == 0x65) c = 0x45;                /* num_parse takes E as $45 */
             in[n++] = c;
         }
     }

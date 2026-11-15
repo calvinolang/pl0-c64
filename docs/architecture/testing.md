@@ -35,7 +35,13 @@ Needs cc65 (`cc65`, `ca65`, `cl65`; 2.18/2.19 checked) and VICE `x64sc`
 
 - C is compiled in two steps, `cc65 -t c64 -O -Isrc -W +error` to
   `build/c64/*.c.s` and `ca65` to `*.o`, then linked with
-  `cl65 -t c64 -C src/c64/pl0-c64.cfg`. Never use `cl65 -c` on a source in
+  `cl65 -t c64 -C src/c64/pl0-c64.cfg`. Every C source goes through a
+  generated wrapper `build/c64/X.ascii.c` that includes
+  `<ascii_charmap.h>` first, so all C64 text is ASCII (Task 12b; see
+  "Text encoding" in spike-results.md); assembly includes
+  `src/c64/ascii.inc`. C64 programs print with `io_put_str` (the check
+  programs through `tests/c64/out.c`), never cc65 `printf`, whose format
+  parsing is PETSCII. Never use `cl65 -c` on a source in
   place: cl65 writes its intermediate `.s` next to the source, which
   overwrote `src/c64/num_c64.s` once. Warnings are errors (`-W +error`).
 - `tests/vice_run.sh [options] <prg> <expected-line> <cycle-limit> [fail-text]`
@@ -77,8 +83,7 @@ Needs cc65 (`cc65`, `ca65`, `cl65`; 2.18/2.19 checked) and VICE `x64sc`
   registers and text screen restored after `gfx_close`, line timings with
   the CIA2 timers; screen codes, colour RAM scrolling, number input,
   `io_break` once per press and its cost) and print `PASS` or `FAIL n`.
-  `io_check.c` uses ASCII string literals (`#include <ascii_charmap.h>`),
-  as the VM's strings are ASCII.
+  Like all C64 sources they are compiled with ASCII literals.
 - `tests/c64/num_check.c` repeats the groups of `tests/test_num.c` (values
   outside the C64 range replaced and commented), adds aliasing, error-trap,
   boundary, compare and chain groups, and checks the generated vectors in

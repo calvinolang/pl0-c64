@@ -1,6 +1,8 @@
 #include "test.h"
 #include "core/lexer.h"
 #include "core/errors.h"
+#include "core/ascii.h"
+#include <ctype.h>
 #include <string.h>
 
 static void first(Lexer *lx, const char *s) { lex_init(lx, s); lex_next(lx); }
@@ -103,7 +105,40 @@ static void unknown_char(void) {
     first(&lx, "@"); CHECK_EQ_INT(lx.tok, T_ERROR); CHECK_EQ_INT(lx.err, E_CHAR);
 }
 
+/* core/ascii.h against the host's <ctype.h> in the C locale (ASCII), for
+ * every byte value: nothing at or above 0x80 (PETSCII letters, Latin-1) is
+ * a letter or digit. */
+static void ascii_classes(void) {
+    int c, bad = 0;
+    for (c = 0; c < 256; c++) {
+        int ascii = c < 0x80;
+        if (ASCII_IS_DIGIT(c) != (ascii && isdigit(c) != 0)) bad++;
+        if (ASCII_IS_UPPER(c) != (ascii && isupper(c) != 0)) bad++;
+        if (ASCII_IS_LOWER(c) != (ascii && islower(c) != 0)) bad++;
+        if (ASCII_IS_ALPHA(c) != (ascii && isalpha(c) != 0)) bad++;
+        if (ASCII_IS_UPPER(c) && tolower(c) != c + ASCII_CASE_BIT) bad++;
+    }
+    CHECK_EQ_INT(bad, 0);
+}
+
+/* Identifiers fold A-Z to a-z and nothing else; the characters next to the
+ * letter ranges and 8-bit codes (PETSCII shifted letters $C1-$DA) are not
+ * letters. */
+static void ascii_identifiers(void) {
+    Lexer lx;
+    first(&lx, "AZaz09"); CHECK_EQ_INT(lx.tok, T_IDENT); CHECK(strcmp(lx.text, "azaz09") == 0);
+    first(&lx, "WHILE"); CHECK_EQ_INT(lx.tok, T_WHILE);
+    first(&lx, "PenDown"); CHECK_EQ_INT(lx.tok, T_PENDOWN);
+    first(&lx, "[");  CHECK_EQ_INT(lx.tok, T_ERROR); CHECK_EQ_INT(lx.err, E_CHAR);
+    first(&lx, "`");  CHECK_EQ_INT(lx.tok, T_ERROR); CHECK_EQ_INT(lx.err, E_CHAR);
+    first(&lx, "\xC1"); CHECK_EQ_INT(lx.tok, T_ERROR); CHECK_EQ_INT(lx.err, E_CHAR);
+    lex_init(&lx, "a\xC1");
+    lex_next(&lx); CHECK_EQ_INT(lx.tok, T_IDENT); CHECK(strcmp(lx.text, "a") == 0);
+    lex_next(&lx); CHECK_EQ_INT(lx.tok, T_ERROR);
+}
+
 int main(void) {
+    ascii_classes(); ascii_identifiers();
     keywords_case_insensitive(); numbers(); comment_skipped(); unterminated_comment();
     strings(); unterminated_string(); line_numbers(); ne_both_forms(); assign_vs_eq();
     symbols(); identifier_too_long(); empty_source(); unknown_char();

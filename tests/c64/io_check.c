@@ -2,8 +2,8 @@
  *
  * Run by `make c64-io` (tests/vice_run.sh with --snap, --on key injection
  * and --check tools/check_io.py). All output goes through io_put_str, so
- * this file uses ASCII string literals (ascii_charmap.h) like the VM's
- * strings. Each part checks the screen RAM itself; the harness also checks
+ * this file uses ASCII string literals like the VM's strings (every C64
+ * source is compiled with the ASCII charmap, see the Makefile). Each part checks the screen RAM itself; the harness also checks
  * the screens it saved:
  *   step 1: after 60 lines `line 00`..`line 59`: rows 0..23 must be
  *           `line 36`..`line 59`, row 24 empty (the screen scrolled)
@@ -21,7 +21,6 @@
 #include "platform/io.h"
 #include "platform/io_c64.h"
 #include "platform/num.h"
-#include <ascii_charmap.h>      /* string and char literals in ASCII from here on */
 
 #define REG(a) (*(volatile uint8_t *)(a))
 #define STEP REG(0x02A7)
@@ -142,10 +141,12 @@ static void wrap40(void)
 
 static void charset(void)
 {
-    static const uint8_t want[] = {65, 90, 1, 26, 48, 57, 0, 27, 29, 100, 32, 33, 63, 46, 69};
+    /* ASCII only: an 8-bit code such as PETSCII shifted E ($C5) is shown
+     * as a space, like the other non-ASCII codes */
+    static const uint8_t want[] = {65, 90, 1, 26, 48, 57, 0, 27, 29, 100, 32, 33, 63, 46, 69, 32, 32};
     uint8_t i;
     io_text_open();
-    io_put_str("AZaz09@[]_ !?.\xC5");    /* $C5: num_format's E */
+    io_put_str("AZaz09@[]_ !?.E\xC5\xDA");
     for (i = 0; i < sizeof want; i++)
         if (SCREEN[i] != want[i]) break;
     check(i == sizeof want, "charset");
@@ -248,8 +249,7 @@ int main(void)
     read_one("feed5", "7");         /* 1 DEL 7 RETURN: editing */
     read_one("feed6", 0);           /* - RETURN: a sign alone is bad */
     read_one("feed7", 0);           /* 4 RUN/STOP: bad input */
-    /* num_format writes the exponent letter as cc65's 'E' = $C5 */
-    read_one("feed10", "1.11111111\xC5+19");  /* 25 ones: only 20 kept */
+    read_one("feed10", "1.11111111E+19");  /* 25 ones: only 20 kept */
     read_one("feed11", "1000");     /* 1e3 RETURN: lower case e */
     read_one("feed12", "-0.025");   /* -2.5E-2 RETURN: shifted E */
     read_one("feed13", "3");        /* +3 RETURN: plus sign like the host */

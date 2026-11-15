@@ -1,4 +1,5 @@
 #include "core/errors.h"
+#include "core/ascii.h"     /* the texts are ASCII on every target */
 
 /* One table indexed by error code. Keep texts <= 36 chars.
    tools/check_error_docs.py parses the string literals in this table. */

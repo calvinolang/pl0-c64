@@ -18,6 +18,7 @@
  * num_format never call the ROM, so their strings may live anywhere.
  * Nothing here is reentrant (static locals keep the code small). */
 #include "platform/num.h"
+#include "core/ascii.h"     /* ASCII text (num_parse, num_format) */
 
 #pragma static-locals (on)
 

@@ -487,10 +487,9 @@ tuning in spec 10b(5) will matter.
 
 ## 9. Notes for later tasks
 
-- cc65 C64 string literals are PETSCII. `'a'` in C is `$41`. ROM output
-  (FOUT) and `FIN` input are ASCII digits plus `E`, `+`, `-`, `.`, so they
-  pass through unchanged. Uppercase C literals print as graphics in the
-  default charset.
+- cc65 C64 string literals are PETSCII by default (`'a'` in C is `$41`).
+  Superseded by Task 12b: every C64 source is now compiled with the ASCII
+  charmap (section "Text encoding" below).
 - FOUT writes into `$0100-$010F`, the bottom of the 6502 stack page. That is
   harmless at cc65's stack depths, but copy the string out immediately.
 - MOVMF rounds FAC before storing. Packed format: byte 0 = exponent
@@ -511,15 +510,9 @@ tuning in spec 10b(5) will matter.
   Reproducer: `tests/c64/cc65_bug_ternary.c` (build command and the wrong
   output in its header; not built by any target). Prefer
   `if` statements to `?:` on locals in C64 code, and test on the target.
-- **Character codes differ by module.** The language (source text, string
-  literals, `io_put_str`) is ASCII. cc65 C literals are PETSCII ('a' = $41,
-  'E' = $C5). `num_format` writes its exponent letter as $C5, and
-  `num_parse` takes the exponent letter as $45 or $C5 only (ASCII 'e' = $65
-  is rejected). `io_put_str` therefore shows ASCII and also PETSCII upper
-  case $C1-$DA as A-Z, and `io_read_num` stores a typed e as $45. Task 14
-  must choose how the core (keywords in `lexer.c`, messages in `errors.c`)
-  is compiled for the C64: with ASCII literals (`#include <ascii_charmap.h>`
-  or `#pragma charmap`) to match an ASCII source buffer, or not.
+- **Character codes** (Task 12 had them differ by module; resolved by
+  Task 12b, see "Text encoding" below: ASCII everywhere inside the
+  program).
 - Text output (`src/c64/io_c64.s`) uses its own cursor; the KERNAL and
   cc65 `conio` cursors are not updated. Output is in the upper/lower case
   character set (`$D018 = $17`), wraps at column 40 (deferred: 40 characters and a new line take one row) and scrolls
@@ -535,3 +528,42 @@ tuning in spec 10b(5) will matter.
   are skipped. Later code must not rely on TI across `gfx_line` calls (time
   drawings with the CIA timers instead). `gfx_open` points the RAM NMI
   vector `$FFFA` at an `RTI`.
+
+### Text encoding (Task 12b, binding)
+
+- **ASCII is the internal text encoding everywhere**: the source buffer,
+  lexer (keywords), compiler, VM strings, error texts (`errors.c`),
+  `num_format`/`num_parse` (exponent letter `E` = $45 written, `e`/`E`
+  read, as on the host). PETSCII and screen codes exist only at the
+  hardware boundaries: keyboard in (`io_read_num`, later the editor),
+  screen out (`io_scr` in `io_c64.s`), disk files (Task 15).
+- Mechanism: cc65 has no forced-include option, so the Makefile compiles
+  each C64 C source through a generated one-line wrapper
+  `build/c64/X.ascii.c` (`#include <ascii_charmap.h>` then
+  `#include "<source>"`); this covers src/core, src/c64 and tests/c64
+  alike. Assembly sources include `src/c64/ascii.inc` (an identity
+  `.charmap` for 1..255), so `'E'` assembles to $45.
+- Guard: `src/core/ascii.h` holds a typedef whose array size is negative
+  unless `'a'`, `'z'`, `'A'`, `'E'`, `'\n'` and `'0'` are ASCII, so a
+  PETSCII build of `lexer.c`, `errors.c`, `turtle.c`, `num_c64.c` or
+  `io_c64.c` does not compile (written with XOR: cc65 2.18 rejects `==` in an
+  array size and warns "Result of comparison is constant").
+- Never use `<ctype.h>` in portable code: cc65's tables follow the target
+  charset (`isalpha(0x61)` is false on the C64). `src/core/ascii.h` has
+  `ASCII_IS_DIGIT/UPPER/LOWER/ALPHA` with explicit ranges (host-tested
+  against `<ctype.h>` for all 256 values in `tests/test_lexer.c`).
+- cc65 stdio cannot be used by C64 programs compiled this way: `printf`
+  (libsrc, assembled for PETSCII) parses its format letters as PETSCII. The
+  check programs print through `io_put_str` (`tests/c64/out.c`).
+- Screen charset: the upper/lower case set (`$D018 = $17`); ASCII `A-Z`
+  map to screen codes $41-$5A (upper case), `a-z` to 1-26, `@` to 0, the
+  other printable ASCII as listed in `io_scr`; every byte >= $7F and every
+  control code other than `\n` shows as a space.
+- cc65 `-O` ternary bug audit (Task 12b): `?:` on stack locals was
+  rewritten as `if` in `lexer.c` (identifier lower-casing, false branch a
+  local: exactly the miscompiled pattern) and `clip.c` (`c = c0 ? c0 : c1`
+  and the sign in `mul_div`). The remaining `?:` in src/core and src/c64
+  pick between constants (`compiler.c` operator and turtle opcodes,
+  `vm.c` error codes, `num_c64.c` saturation values and the error code from
+  a static), which is not the miscompiled shape; they were left as they
+  are.

@@ -31,7 +31,8 @@ static long mul_div(long a, long b, long d)
     if (b < 0) { ub = (unsigned long)-b; neg = !neg; } else ub = (unsigned long)b;
     if (d < 0) { ud = (unsigned long)-d; neg = !neg; } else ud = (unsigned long)d;
     r = (ua * ub + ud / 2) / ud;
-    return neg ? -(long)r : (long)r;
+    if (neg) return -(long)r;      /* if, not ?: on locals (cc65 -O bug) */
+    return (long)r;
 }
 
 int clip_line(int16_t *px0, int16_t *py0, int16_t *px1, int16_t *py1)
@@ -51,7 +52,8 @@ int clip_line(int16_t *px0, int16_t *py0, int16_t *px1, int16_t *py1)
             return 1;
         }
         if (c0 & c1) return 0;
-        c = c0 ? c0 : c1;
+        c = c1;                    /* not c0 ? c0 : c1 (cc65 -O bug) */
+        if (c0) c = c0;
         if (c & OUT_B)      { y = YMAX; x = (int16_t)(ox + mul_div(dx, (long)YMAX - oy, dy)); }
         else if (c & OUT_T) { y = 0;    x = (int16_t)(ox + mul_div(dx, -(long)oy, dy)); }
         else if (c & OUT_R) { x = XMAX; y = (int16_t)(oy + mul_div(dy, (long)XMAX - ox, dx)); }

@@ -45,6 +45,7 @@
 ;     clears `armed` the same way.
 
 
+        .include "ascii.inc"   ; ASCII character constants
         .export _io_text_open, _io_text_close, _io_put_str, _io_put_nl
         .export _io_putc, _io_show, _io_back, _io_scr
         .export _io_break, _io_brk_armed
@@ -259,18 +260,12 @@ hit:    lda     #STOPKEY
 ;   a-z $61-$7A                 1..26
 ;   [ \ ] ^ _ `  $5B-$60        [ pound ] up-arrow, underscore graphic, '
 ;   { | } ~  $7B-$7E            [ | ] -   (no such C64 characters)
-;   $C1-$DA                     A-Z: PETSCII upper case, as cc65 C literals
-;                               and num_format's exponent letter 'E' = $C5
-;   anything else               space (controls, DEL, other 8-bit codes)
+;   anything else               space (controls, DEL, every 8-bit code)
+; All text inside the program is ASCII (src/core/ascii.h); this is the only
+; place where it becomes screen codes.
 _io_scr:
-        cmp     #$C1
-        bcc     @lo
-        cmp     #$DB
-        bcs     @sp
-        and     #$7F            ; $C1-$DA -> $41-$5A
-        rts
-@lo:    cmp     #$7F
-        bcs     @sp             ; DEL, $80-$C0
+        cmp     #$7F
+        bcs     @sp             ; DEL, $80-$FF
         cmp     #$7B
         bcs     @tab            ; { | } ~: table entries 6..9
         cmp     #$61

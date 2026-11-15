@@ -14,12 +14,13 @@
  * bitmap with the host renderer. After step 3 the program closes the
  * bitmap and checks by itself that the VIC registers and the text screen
  * are back as they were, prints the timings and `PASS` or `FAIL n`. */
-#include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <6502.h>
 #include "platform/gfx.h"
+#include "platform/io_c64.h"
 #include "gfx_lines.h"
+#include "out.h"
 
 #define REG(a) (*(volatile uint8_t *)(a))
 #define STEP REG(0x02A7)
@@ -75,15 +76,16 @@ static void regs(void)
 
 static void check(int ok, const char *what)
 {
-    if (!ok) { ++failures; printf("bad: %s\n", what); }
+    if (!ok) { ++failures; out_str("bad: "); out_line(what); }
 }
 
 int main(void)
 {
     unsigned i;
     STEP = 0; ACK = 0;
-    printf("gfx check (c64)\n");
-    printf("text before the drawing\n");
+    io_text_open();
+    out_line("gfx check (c64)");
+    out_line("text before the drawing");
     gfx_close();                /* closing before any open must do nothing */
     regs();
     SEI(); tstart(); t_cal = tstop(); CLI();
@@ -124,15 +126,15 @@ int main(void)
     gfx_close();
     check(REG(0xD018) == r_d018 && (REG(0xDD00) & 3) == r_dd00, "reopen");
 
-    printf("cycles: cal %lu\n", t_cal);
-    printf("diag 320px %lu\n", t_diag);
-    printf("horiz 300px %lu\n", t_horiz);
-    printf("vert 200px %lu\n", t_steep);
-    printf("far 200px %lu\n", t_far);
-    printf("dot 1px %lu\n", t_dot);
+    out_str("cycles: cal "); out_ul(t_cal); out_nl();
+    out_str("diag 320px "); out_ul(t_diag); out_nl();
+    out_str("horiz 300px "); out_ul(t_horiz); out_nl();
+    out_str("vert 200px "); out_ul(t_steep); out_nl();
+    out_str("far 200px "); out_ul(t_far); out_nl();
+    out_str("dot 1px "); out_ul(t_dot); out_nl();
     if (t_diag > 49000UL || t_horiz > 49000UL) check(0, "300-pixel line over 50 ms");
-    if (failures == 0) printf("PASS\n");
-    else printf("FAIL %u\n", failures);
+    if (failures == 0) out_line("PASS");
+    else { out_str("FAIL "); out_ul(failures); out_nl(); }
     for (;;) ;
     return 0;
 }
