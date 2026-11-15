@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SPIKE helper: run a .prg in headless VICE, wait for a breakpoint, then
+"""Run a .prg in headless VICE, wait for a breakpoint, then
 run monitor commands over VICE's text remote monitor and quit.
 
 usage: vicemon.py PRG LBL BREAKLABEL OUTDIR CMD [CMD...]

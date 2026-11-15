@@ -16,7 +16,7 @@ hexadd() { printf '%04x' $((0x$1 + $2)); }
 
 echo "== spike.prg (ROM floats)"
 LB=$(addr spike _logbuf)
-CYCLES=200000000 python3 vicemon.py out/spike.prg out/spike.lbl ._spike_done out/vice-spike \
+CYCLES=200000000 python3 ../../tools/vicemon.py out/spike.prg out/spike.lbl ._spike_done out/vice-spike \
     "bsave \"$OUT/spike-log.bin\" 0 $LB $(hexadd $LB 3071)" \
     "bank rom" \
     "d bba2 bba9" "d ba8c ba93" "d bbd4 bbdb" "d b850 b857" "d b867 b86e" \
@@ -32,14 +32,14 @@ cat out/spike.txt
 for w in weight weight2 weight2-Oirs weight3 weight3-Oirs weight4; do
     echo "== $w.prg (VM benchmark, RAM under BASIC)"
     LB=$(addr $w _logbuf)
-    CYCLES=400000000 python3 vicemon.py out/$w.prg out/$w.lbl ._spike_done out/vice-$w \
+    CYCLES=400000000 python3 ../../tools/vicemon.py out/$w.prg out/$w.lbl ._spike_done out/vice-$w \
         "bsave \"$OUT/$w-log.bin\" 0 $LB $(hexadd $LB 1023)"
     python3 petscii.py out/$w-log.bin > out/$w.txt
     cat out/$w.txt
 done
 
 echo "== gfx.prg (bitmap in VIC bank 3)"
-CYCLES=100000000 python3 vicemon.py out/gfx.prg out/gfx.lbl ._shown_bitmap out/vice-gfx \
+CYCLES=100000000 python3 ../../tools/vicemon.py out/gfx.prg out/gfx.lbl ._shown_bitmap out/vice-gfx \
     "screenshot \"$OUT/gfx-bitmap.png\" 2" \
     "m dd00 dd00" "m d011 d011" "m d016 d016" "m d018 d018" "m 0001 0001" \
     "bank ram" "m e000 e027" "m cc00 cc0f" "bank cpu" \
@@ -47,7 +47,7 @@ CYCLES=100000000 python3 vicemon.py out/gfx.prg out/gfx.lbl ._shown_bitmap out/v
     "screenshot \"$OUT/gfx-text.png\" 2" \
     "m dd00 dd00" "m d011 d011" "m d016 d016" "m d018 d018" "bsave \"$OUT/gfx-textscreen.bin\" 0 0400 07e7"
 sed -n '/>>> m dd00/,$p' out/vice-gfx/monitor.log > out/gfx-regs.txt
-python3 screen2txt.py out/gfx-textscreen.bin > out/gfx-textscreen.txt
+python3 ../../tools/screen2txt.py out/gfx-textscreen.bin > out/gfx-textscreen.txt
 echo "text screen after gfx_close:"; grep -v '^ *$' out/gfx-textscreen.txt
 
 for m in spike weight weight-Oirs weight2 weight2-Oirs weight3 weight3-Oirs weight4 gfx weight-draft-stock; do

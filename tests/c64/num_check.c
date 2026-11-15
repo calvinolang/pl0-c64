@@ -1,0 +1,379 @@
+/* num_check.c -- the number-layer tests (tests/test_num.c) on the C64.
+ *
+ * Built with cc65 against src/c64/num_c64.c + num_c64.s (`make c64-tests`)
+ * and run in headless VICE by `make c64-num` (tests/vice_run.sh), which
+ * greps the screen for the final PASS. Prints one line per test group and
+ * then `PASS` or `FAIL n` (n = failed checks; a failed group prints
+ * `name: k bad`, so `FAIL` appears only at the end). Failed checks print their
+ * source line (and got/expected) just before their group line.
+ *
+ * Same group names and values as tests/test_num.c where the 5-byte BASIC
+ * float can hold them. Differences, each explained at the check:
+ *   - The host's double-only magnitudes (1e100, 1e300, 1.7e308) are replaced
+ *     by the C64 range (largest finite value about 1.70141183E+38, smallest
+ *     about 2.9E-39), so no exponent ever has 3 digits on the C64 and the
+ *     host's 8-digit reduction for 3-digit exponents cannot occur.
+ *   - The host sets doubles directly (a = -1.23456789e100); here values come
+ *     from num_parse or exact arithmetic.
+ *   - There is no NaN in the C64 format, so to_i16(NaN) has no equivalent.
+ * Extra groups: aliasing of every operation, overflow/error traps, more
+ * formatting boundaries, compare/zero, and a chain of 200+ mixed ops.
+ *
+ * Output goes through stdio (KERNAL CHROUT), which scrolls; cc65 conio does
+ * not (docs/architecture/spike-results.md section 1). Lowercase C literals
+ * show as lowercase on the screen, uppercase as uppercase. */
+#include <stdio.h>
+#include <string.h>
+#include "platform/num.h"
+
+#define I16_MIN (-32767 - 1)     /* -32768 is a long constant in cc65 */
+
+static unsigned failures;
+
+static void fail_at(unsigned line)
+{
+    ++failures;
+    printf(" line %u\n", line);
+}
+
+#define CHECK(c) do { if (!(c)) fail_at(__LINE__); } while (0)
+
+static void eq_int(unsigned line, long got, long want)
+{
+    if (got != want) {
+        ++failures;
+        printf(" line %u got %ld want %ld\n", line, got, want);
+    }
+}
+#define CHECK_EQ_INT(a, b) eq_int(__LINE__, (long)(a), (long)(b))
+
+static void fmt_at(unsigned line, const num_t *a, const char *want)
+{
+    char b[16];
+    memset(b, '#', sizeof b);
+    num_format(a, b);
+    if (memchr(b, 0, sizeof b) == NULL) {      /* 16-byte buffer contract */
+        ++failures;
+        printf(" line %u no nul\n", line);
+    } else if (strcmp(b, want) != 0) {
+        ++failures;
+        printf(" line %u\n  got  %s\n  want %s\n", line, b, want);
+    }
+}
+#define fmt_is(a, want) fmt_at(__LINE__, (a), (want))
+
+static void p_at(unsigned line, num_t *r, const char *s)
+{
+    if (num_parse(s, r) != 0) {
+        ++failures;
+        printf(" line %u parse %s\n", line, s);
+    }
+}
+#define P(r, s) p_at(__LINE__, (r), (s))
+
+/* ---- the groups of tests/test_num.c --------------------------------- */
+
+static void copy_and_alias(void) {
+    num_t a, b; P(&a, "2.5"); num_copy(&b, &a); fmt_is(&b, "2.5");
+    num_add(&a, &a, &b); fmt_is(&a, "5");          /* r aliases a */
+    num_mul(&b, &a, &b); fmt_is(&b, "12.5");       /* r aliases b */
+}
+static void format_integer(void) { num_t a; P(&a, "3.0"); fmt_is(&a, "3"); }
+static void format_fraction(void) {
+    num_t a, b, r; P(&a, "0.1"); P(&b, "0.2"); num_add(&r, &a, &b); fmt_is(&r, "0.3");
+}
+static void format_negative(void) { num_t a; P(&a, "-2.5"); fmt_is(&a, "-2.5"); }
+static void format_huge(void) { num_t a; P(&a, "1e12"); fmt_is(&a, "1E+12"); P(&a, "1.5E12"); fmt_is(&a, "1.5E+12"); }
+static void format_tiny(void) { num_t a; P(&a, "0.00001"); fmt_is(&a, "1E-05"); }
+static void format_misc(void) {
+    num_t a, z; P(&a, "0"); num_neg(&z, &a); fmt_is(&z, "0");
+    P(&a, "999999999"); fmt_is(&a, "999999999");
+    P(&a, "1e9"); fmt_is(&a, "1E+09");
+    P(&a, "0.0001"); fmt_is(&a, "0.0001");
+    P(&a, "-7"); fmt_is(&a, "-7");
+    P(&a, "3.14159265358979"); fmt_is(&a, "3.14159265");
+}
+/* Host: -1.23456789e100 -> "-1.2345679E+100" etc. (3-digit exponents,
+ * 15 chars). The C64 range ends near 1.7e38, so the same buffer bound is
+ * exercised with the longest 2-digit-exponent strings (15 chars + NUL):
+ * all 9 significant digits are kept. The .5 values are exact in 32 bits;
+ * they are built by exact addition because FIN (num_parse) accumulates the
+ * 10 digits of "999999999.5" through x10 steps beyond 32 bits. */
+static void format_bounds(void) {
+    num_t a, h;
+    P(&h, "0.5");
+    P(&a, "-1.23456789e38"); fmt_is(&a, "-1.23456789E+38");
+    P(&a, "-1.23456789e-38"); fmt_is(&a, "-1.23456789E-38");
+    P(&a, "1e38"); fmt_is(&a, "1E+38");
+    P(&a, "1e-38"); fmt_is(&a, "1E-38");
+    P(&a, "-1.70141183e38"); fmt_is(&a, "-1.70141183E+38");   /* about -max */
+    P(&a, "999999999"); num_add(&a, &a, &h); fmt_is(&a, "1E+09");          /* 999999999.5 */
+    P(&a, "-999999999"); num_sub(&a, &a, &h); fmt_is(&a, "-1E+09");        /* -999999999.5 */
+    P(&a, "-123456789"); num_sub(&a, &a, &h); fmt_is(&a, "-123456790");    /* -123456789.5 */
+    P(&a, "-0.000123456789"); fmt_is(&a, "-0.000123456789");
+}
+static void parse_ok(void) { num_t a, b; P(&a, "3.14"); num_from_int(&b, 3); CHECK(num_cmp(&a, &b) > 0); CHECK_EQ_INT(num_to_i16(&a), 3); }
+static void parse_bad(void) {
+    num_t a;
+    CHECK_EQ_INT(num_parse("3.1.4", &a), -1); CHECK_EQ_INT(num_parse("", &a), -1); CHECK_EQ_INT(num_parse("abc", &a), -1);
+    /* more junk the host (strtod + full-match) also rejects */
+    CHECK_EQ_INT(num_parse(".", &a), -1); CHECK_EQ_INT(num_parse("-", &a), -1);
+    CHECK_EQ_INT(num_parse("1e", &a), -1); CHECK_EQ_INT(num_parse("e5", &a), -1);
+    CHECK_EQ_INT(num_parse("1-2", &a), -1); CHECK_EQ_INT(num_parse("1 2", &a), -1);
+    CHECK_EQ_INT(num_parse("12x", &a), -1); CHECK_EQ_INT(num_parse("1e+", &a), -1);
+    /* out of the C64 range: the host returns -1 for inf, here FIN overflows */
+    CHECK_EQ_INT(num_parse("1e39", &a), -1);
+    /* accepted like strtod */
+    P(&a, "+5"); fmt_is(&a, "5");
+    P(&a, ".5"); fmt_is(&a, "0.5");
+    P(&a, "5."); fmt_is(&a, "5");
+    P(&a, "1e-5"); fmt_is(&a, "1E-05");
+    P(&a, "1E+3"); fmt_is(&a, "1000");
+    P(&a, "0.000"); fmt_is(&a, "0");
+}
+static void div_zero(void) { num_t a, z, r; num_from_int(&a, 1); num_from_int(&z, 0); CHECK(num_div(&r, &a, &z) != 0);
+    num_from_int(&z, 4); CHECK_EQ_INT(num_div(&r, &a, &z), 0); fmt_is(&r, "0.25"); }
+static void odd(void) {
+    num_t a; num_from_int(&a, 3); CHECK(num_is_odd(&a));
+    num_from_int(&a, 4); CHECK(!num_is_odd(&a));
+    num_from_int(&a, -3); CHECK(num_is_odd(&a));
+    P(&a, "2.5"); CHECK(!num_is_odd(&a));
+    P(&a, "3.5"); CHECK(num_is_odd(&a));
+    /* floor of negatives and of the extremes */
+    P(&a, "-0.5"); CHECK(num_is_odd(&a));          /* floor -1 */
+    P(&a, "-2.5"); CHECK(num_is_odd(&a));          /* floor -3 */
+    P(&a, "-4"); CHECK(!num_is_odd(&a));
+    P(&a, "0.5"); CHECK(!num_is_odd(&a));
+    P(&a, "1"); CHECK(num_is_odd(&a));
+    P(&a, "0"); CHECK(!num_is_odd(&a));
+    P(&a, "4294967295"); CHECK(num_is_odd(&a));   /* 2^32-1: units bit is the last mantissa bit */
+    P(&a, "4294967294"); CHECK(!num_is_odd(&a));
+    P(&a, "1e20"); CHECK(!num_is_odd(&a));
+    P(&a, "-1e20"); CHECK(!num_is_odd(&a));
+}
+/* C64 differences: cos(0) is 0.99999999977 (prints "1" after 9-digit
+ * rounding, like the host). See the report for atn(1) and log(1). */
+static void fn_domain(void) {
+    num_t a, r; num_from_int(&a, -1); CHECK(num_fn(NUMFN_SQR, &r, &a) != 0);
+    num_from_int(&a, 0); CHECK(num_fn(NUMFN_LOG, &r, &a) != 0);
+    num_from_int(&a, 9); CHECK_EQ_INT(num_fn(NUMFN_SQR, &r, &a), 0); fmt_is(&r, "3");
+    P(&a, "-2.5"); CHECK_EQ_INT(num_fn(NUMFN_INT, &r, &a), 0); fmt_is(&r, "-3");
+    CHECK_EQ_INT(num_fn(NUMFN_ABS, &r, &a), 0); fmt_is(&r, "2.5");
+    P(&a, "0"); CHECK_EQ_INT(num_fn(NUMFN_SIN, &r, &a), 0); fmt_is(&r, "0");
+    CHECK_EQ_INT(num_fn(NUMFN_COS, &r, &a), 0); fmt_is(&r, "1");
+    CHECK_EQ_INT(num_fn(NUMFN_ATN, &r, &a), 0); fmt_is(&r, "0");
+    CHECK_EQ_INT(num_fn(NUMFN_EXP, &r, &a), 0); fmt_is(&r, "1");
+    P(&a, "1"); CHECK_EQ_INT(num_fn(NUMFN_LOG, &r, &a), 0); fmt_is(&r, "0");
+    CHECK_EQ_INT(num_fn(NUMFN_ATN, &r, &a), 0); fmt_is(&r, "0.785398163");
+    P(&a, "1000"); CHECK_EQ_INT(num_fn(NUMFN_EXP, &r, &a), 2);   /* overflow */
+    num_from_int(&a, -1); CHECK_EQ_INT(num_fn(NUMFN_SQR, &r, &a), 1);   /* domain */
+    num_from_int(&a, 0); CHECK_EQ_INT(num_fn(NUMFN_LOG, &r, &a), 1);
+    num_from_int(&a, 4); num_copy(&r, &a); CHECK_EQ_INT(num_fn(NUMFN_SQR, &r, &r), 0); fmt_is(&r, "2");  /* r aliases a */
+}
+/* Host uses 1e300 and 1.7e308; the C64 equivalents are 1e38 and 1.7e38. */
+static void overflow_flags(void) {
+    num_t a, b, r; P(&a, "1e38"); P(&b, "1e38");
+    CHECK(num_mul(&r, &a, &b) != 0);
+    P(&a, "1.7e38"); CHECK(num_add(&r, &a, &a) != 0);
+    num_neg(&b, &a); CHECK(num_sub(&r, &b, &a) != 0);
+    num_from_int(&a, 3); CHECK_EQ_INT(num_neg(&r, &a), 0); fmt_is(&r, "-3");
+    num_from_int(&b, 4); CHECK_EQ_INT(num_add(&r, &a, &b), 0); fmt_is(&r, "7");
+    CHECK_EQ_INT(num_sub(&r, &a, &b), 0); fmt_is(&r, "-1");
+    CHECK_EQ_INT(num_mul(&a, &a, &b), 0); fmt_is(&a, "12");   /* aliasing */
+    P(&a, "1e38"); P(&b, "1e-38"); CHECK_EQ_INT(num_div(&r, &a, &b), 2);   /* quotient overflow */
+    num_from_int(&b, 0); CHECK_EQ_INT(num_div(&r, &a, &b), 1);            /* zero divisor */
+}
+/* The host's NaN case has no C64 equivalent (no NaN in the format). */
+static void to_i16_saturates(void) {
+    num_t a; P(&a, "1e9"); CHECK_EQ_INT(num_to_i16(&a), 32767);
+    P(&a, "-1e9"); CHECK_EQ_INT(num_to_i16(&a), I16_MIN);
+    P(&a, "-2.5"); CHECK_EQ_INT(num_to_i16(&a), -3);
+    P(&a, "2.5"); CHECK_EQ_INT(num_to_i16(&a), 2);
+    /* edges */
+    P(&a, "32767"); CHECK_EQ_INT(num_to_i16(&a), 32767);
+    P(&a, "32767.5"); CHECK_EQ_INT(num_to_i16(&a), 32767);
+    P(&a, "32768"); CHECK_EQ_INT(num_to_i16(&a), 32767);
+    P(&a, "-32768"); CHECK_EQ_INT(num_to_i16(&a), I16_MIN);
+    P(&a, "-32767.5"); CHECK_EQ_INT(num_to_i16(&a), I16_MIN);
+    P(&a, "-32768.5"); CHECK_EQ_INT(num_to_i16(&a), I16_MIN);
+    P(&a, "-3"); CHECK_EQ_INT(num_to_i16(&a), -3);
+    P(&a, "-0.5"); CHECK_EQ_INT(num_to_i16(&a), -1);
+    P(&a, "0.5"); CHECK_EQ_INT(num_to_i16(&a), 0);
+    P(&a, "0"); CHECK_EQ_INT(num_to_i16(&a), 0);
+    P(&a, "1e-30"); CHECK_EQ_INT(num_to_i16(&a), 0);
+    P(&a, "-1e-30"); CHECK_EQ_INT(num_to_i16(&a), -1);
+    P(&a, "1.7e38"); CHECK_EQ_INT(num_to_i16(&a), 32767);
+    num_from_int(&a, I16_MIN); CHECK_EQ_INT(num_to_i16(&a), I16_MIN);
+    num_from_int(&a, 12345); CHECK_EQ_INT(num_to_i16(&a), 12345);
+}
+
+/* ---- C64-only groups -------------------------------------------------- */
+
+/* Every operation with the result aliasing each operand and both. */
+static void alias_ops(void) {
+    num_t a, b, r;
+#define SET num_from_int(&a, 6); num_from_int(&b, 4)
+    SET; CHECK_EQ_INT(num_add(&a, &a, &b), 0); fmt_is(&a, "10");
+    SET; CHECK_EQ_INT(num_add(&b, &a, &b), 0); fmt_is(&b, "10");
+    SET; CHECK_EQ_INT(num_add(&a, &a, &a), 0); fmt_is(&a, "12");
+    SET; CHECK_EQ_INT(num_sub(&a, &a, &b), 0); fmt_is(&a, "2");
+    SET; CHECK_EQ_INT(num_sub(&b, &a, &b), 0); fmt_is(&b, "2");
+    SET; CHECK_EQ_INT(num_sub(&a, &a, &a), 0); fmt_is(&a, "0");
+    SET; CHECK_EQ_INT(num_mul(&a, &a, &b), 0); fmt_is(&a, "24");
+    SET; CHECK_EQ_INT(num_mul(&b, &a, &b), 0); fmt_is(&b, "24");
+    SET; CHECK_EQ_INT(num_mul(&a, &a, &a), 0); fmt_is(&a, "36");
+    SET; CHECK_EQ_INT(num_div(&a, &a, &b), 0); fmt_is(&a, "1.5");
+    SET; CHECK_EQ_INT(num_div(&b, &a, &b), 0); fmt_is(&b, "1.5");
+    SET; CHECK_EQ_INT(num_div(&a, &a, &a), 0); fmt_is(&a, "1");
+    SET; CHECK_EQ_INT(num_neg(&a, &a), 0); fmt_is(&a, "-6");
+    CHECK_EQ_INT(num_neg(&a, &a), 0); fmt_is(&a, "6");
+    num_from_int(&a, 16); CHECK_EQ_INT(num_fn(NUMFN_SQR, &a, &a), 0); fmt_is(&a, "4");
+    P(&a, "-2.5"); CHECK_EQ_INT(num_fn(NUMFN_ABS, &a, &a), 0); fmt_is(&a, "2.5");
+    P(&a, "-2.5"); CHECK_EQ_INT(num_fn(NUMFN_INT, &a, &a), 0); fmt_is(&a, "-3");
+    num_from_int(&a, 0); CHECK_EQ_INT(num_fn(NUMFN_EXP, &a, &a), 0); fmt_is(&a, "1");
+    num_from_int(&a, 0); CHECK_EQ_INT(num_fn(NUMFN_SIN, &a, &a), 0); fmt_is(&a, "0");
+    num_from_int(&a, 0); CHECK_EQ_INT(num_fn(NUMFN_COS, &a, &a), 0); fmt_is(&a, "1");
+    num_from_int(&a, 0); CHECK_EQ_INT(num_fn(NUMFN_ATN, &a, &a), 0); fmt_is(&a, "0");
+    num_from_int(&a, 1); CHECK_EQ_INT(num_fn(NUMFN_LOG, &a, &a), 0); CHECK(num_is_zero(&a) || num_to_i16(&a) == 0);
+    num_from_int(&a, 7); num_copy(&a, &a); fmt_is(&a, "7");
+    num_from_int(&r, 1); num_copy(&r, &a); fmt_is(&r, "7");
+#undef SET
+}
+
+/* Errors: trapped, flagged, nothing reaches BASIC; r untouched where the
+ * host leaves it untouched (div by zero, fn domain and overflow). */
+static void errors(void) {
+    num_t a, b, r, k;
+    num_from_int(&k, 42);
+    P(&a, "1e38"); num_from_int(&b, 10); CHECK(num_mul(&r, &a, &b) != 0);
+    P(&a, "1.7e38"); CHECK(num_add(&r, &a, &a) != 0);
+    num_from_int(&a, 1000); num_copy(&r, &k); CHECK_EQ_INT(num_fn(NUMFN_EXP, &r, &a), 2); fmt_is(&r, "42");
+    num_from_int(&a, 100); CHECK_EQ_INT(num_fn(NUMFN_EXP, &r, &a), 2);
+    num_from_int(&a, 1); num_from_int(&b, 0); num_copy(&r, &k); CHECK_EQ_INT(num_div(&r, &a, &b), 1); fmt_is(&r, "42");
+    num_neg(&b, &b); CHECK_EQ_INT(num_div(&r, &a, &b), 1);      /* "negative zero" divisor */
+    num_from_int(&a, -1); num_copy(&r, &k); CHECK_EQ_INT(num_fn(NUMFN_SQR, &r, &a), 1); fmt_is(&r, "42");
+    P(&a, "-1e-30"); CHECK_EQ_INT(num_fn(NUMFN_SQR, &r, &a), 1);
+    num_from_int(&a, 0); CHECK_EQ_INT(num_fn(NUMFN_LOG, &r, &a), 1);
+    num_neg(&a, &a); CHECK_EQ_INT(num_fn(NUMFN_LOG, &r, &a), 1);
+    num_from_int(&a, -1); num_copy(&r, &k); CHECK_EQ_INT(num_fn(NUMFN_LOG, &r, &a), 1); fmt_is(&r, "42");
+    num_from_int(&a, 0); CHECK_EQ_INT(num_fn(NUMFN_SQR, &r, &a), 0); fmt_is(&r, "0");
+    CHECK_EQ_INT(num_fn(9, &r, &a), 1);                          /* unknown function */
+    /* underflow is silent and gives zero */
+    P(&a, "1e-20"); CHECK_EQ_INT(num_mul(&r, &a, &a), 0); CHECK(num_is_zero(&r)); fmt_is(&r, "0");
+    num_from_int(&a, -1000); CHECK_EQ_INT(num_fn(NUMFN_EXP, &r, &a), 0); fmt_is(&r, "0");
+    /* trig of huge finite arguments: precision is lost, but no error or hang */
+    P(&a, "1.7e38"); CHECK_EQ_INT(num_fn(NUMFN_SIN, &r, &a), 0);
+    CHECK_EQ_INT(num_fn(NUMFN_COS, &r, &a), 0);
+    CHECK_EQ_INT(num_fn(NUMFN_ATN, &r, &a), 0); fmt_is(&r, "1.57079633");
+    P(&a, "-1.70141183e38"); CHECK_EQ_INT(num_fn(NUMFN_SIN, &r, &a), 0);
+    CHECK_EQ_INT(num_fn(NUMFN_COS, &r, &a), 0);
+    CHECK_EQ_INT(num_fn(NUMFN_ATN, &r, &a), 0); fmt_is(&r, "-1.57079633");
+    P(&a, "1e10"); CHECK_EQ_INT(num_fn(NUMFN_SIN, &r, &a), 0);
+    /* everything still works afterwards */
+    num_from_int(&a, 1); num_from_int(&b, 3); CHECK_EQ_INT(num_div(&r, &a, &b), 0); fmt_is(&r, "0.333333333");
+}
+
+/* More formatting cases, each by the host rules. */
+static void format_more(void) {
+    num_t a, b;
+    P(&a, "0.001"); fmt_is(&a, "0.001");
+    P(&a, "0.01"); fmt_is(&a, "0.01");
+    P(&a, "0.00009"); fmt_is(&a, "9E-05");
+    P(&a, "0.000099"); fmt_is(&a, "9.9E-05");
+    P(&a, "123456789"); fmt_is(&a, "123456789");
+    P(&a, "3628800"); fmt_is(&a, "3628800");
+    P(&a, "100000"); fmt_is(&a, "100000");
+    P(&a, "100000000"); fmt_is(&a, "100000000");
+    P(&a, "-1.5e-7"); fmt_is(&a, "-1.5E-07");
+    P(&a, "12345.678"); fmt_is(&a, "12345.678");
+    P(&a, "-0.5"); fmt_is(&a, "-0.5");
+    P(&a, "1e10"); fmt_is(&a, "1E+10");
+    P(&a, "2.5e-10"); fmt_is(&a, "2.5E-10");
+    num_from_int(&a, 32767); fmt_is(&a, "32767");
+    num_from_int(&a, I16_MIN); fmt_is(&a, "-32768");
+    num_from_int(&a, 2); num_from_int(&b, 3); num_div(&a, &a, &b); fmt_is(&a, "0.666666667");
+    num_from_int(&a, 1); num_from_int(&b, 7); num_div(&a, &a, &b); fmt_is(&a, "0.142857143");
+    num_from_int(&a, 1); num_div(&a, &a, &b); num_neg(&a, &a); fmt_is(&a, "-0.142857143");
+    num_from_int(&a, 1); num_from_int(&b, 1024); num_div(&a, &a, &b); fmt_is(&a, "0.0009765625");
+    num_from_int(&b, 1024); num_div(&a, &a, &b); fmt_is(&a, "9.53674316E-07");
+}
+
+/* Three-way compare, zero tests. */
+static void cmp_zero(void) {
+    num_t a, b, z, nz;
+    num_from_int(&a, 2); num_from_int(&b, 3);
+    CHECK(num_cmp(&a, &b) < 0); CHECK(num_cmp(&b, &a) > 0); CHECK_EQ_INT(num_cmp(&b, &b), 0);
+    num_from_int(&a, -2); CHECK(num_cmp(&a, &b) < 0); CHECK(num_cmp(&b, &a) > 0);
+    num_from_int(&b, -3); CHECK(num_cmp(&a, &b) > 0);
+    num_from_int(&z, 0); num_neg(&nz, &z);
+    CHECK(num_is_zero(&z)); CHECK(num_is_zero(&nz)); CHECK_EQ_INT(num_cmp(&z, &nz), 0);
+    CHECK(num_cmp(&a, &z) < 0); CHECK(num_cmp(&z, &a) > 0); CHECK(num_cmp(&nz, &a) > 0);
+    num_from_int(&a, 2); CHECK(num_cmp(&a, &nz) > 0); CHECK(num_cmp(&nz, &a) < 0);
+    P(&a, "1.0000001"); num_from_int(&b, 1); CHECK(num_cmp(&a, &b) > 0); CHECK(!num_is_zero(&a));
+    P(&a, "1e-38"); CHECK(!num_is_zero(&a)); CHECK(num_cmp(&a, &z) > 0);
+}
+
+/* A chain like real VM use: 40 rounds of 13 mixed operations (520 ops),
+ * results computed in place. Every op must return 0. */
+static void chain(void) {
+    num_t i, sq, r, sum, half, one, t, u, eps, acc;
+    unsigned char n, bad = 0, off = 0;
+    num_from_int(&sum, 0); P(&half, "0.5"); num_from_int(&one, 1); P(&eps, "1e-6");
+    num_from_int(&acc, 1);
+    for (n = 1; n <= 40; ++n) {
+        num_from_int(&i, n);
+        bad |= num_mul(&sq, &i, &i);                 /* n^2, exact */
+        bad |= num_fn(NUMFN_SQR, &r, &sq);           /* ~n */
+        bad |= num_add(&r, &r, &half);
+        bad |= num_fn(NUMFN_INT, &r, &r);            /* round -> n */
+        bad |= num_add(&sum, &sum, &r);
+        bad |= num_fn(NUMFN_SIN, &t, &i); bad |= num_mul(&t, &t, &t);
+        bad |= num_fn(NUMFN_COS, &u, &i); bad |= num_mul(&u, &u, &u);
+        bad |= num_add(&t, &t, &u);                  /* sin^2 + cos^2 */
+        bad |= num_sub(&t, &t, &one);
+        bad |= num_fn(NUMFN_ABS, &t, &t);
+        if (num_cmp(&t, &eps) > 0) ++off;
+        bad |= num_mul(&acc, &acc, &i);              /* acc *= n ... */
+        if (n <= 33) bad |= num_div(&acc, &acc, &i); /* ... undone up to 33 */
+    }
+    CHECK_EQ_INT(bad, 0); CHECK_EQ_INT(off, 0);
+    fmt_is(&sum, "820");
+    fmt_is(&acc, "9.39635424E+10");                  /* 34*35*...*40, exact */
+}
+
+static void group(const char *name, void (*f)(void))
+{
+    unsigned before = failures;
+    f();
+    if (failures == before) printf("%s ok\n", name);
+    else printf("%s: %u bad\n", name, failures - before);
+}
+
+int main(void)
+{
+    printf("num_check (c64)\n");
+    group("copy_and_alias", copy_and_alias);
+    group("format_integer", format_integer);
+    group("format_fraction", format_fraction);
+    group("format_negative", format_negative);
+    group("format_huge", format_huge);
+    group("format_tiny", format_tiny);
+    group("format_misc", format_misc);
+    group("format_bounds", format_bounds);
+    group("parse_ok", parse_ok);
+    group("parse_bad", parse_bad);
+    group("div_zero", div_zero);
+    group("odd", odd);
+    group("fn_domain", fn_domain);
+    group("overflow_flags", overflow_flags);
+    group("to_i16_saturates", to_i16_saturates);
+    group("alias_ops", alias_ops);
+    group("errors", errors);
+    group("format_more", format_more);
+    group("cmp_zero", cmp_zero);
+    group("chain", chain);
+    if (failures == 0) printf("PASS\n");
+    else printf("FAIL %u\n", failures);
+    for (;;) ;          /* stay on the screen; tests/vice_run.sh reads it */
+    return 0;
+}
