@@ -3,7 +3,9 @@
 
 Assumes the lower/upper case character set that cc65 programs use
 ($D018 = $17): screen codes 1..26 are a..z, 65..90 are A..Z. Reverse video
-is ignored. Screen code 100 is the cc65 '_' (PETSCII $A4).
+is ignored. Screen code 100 is the cc65 '_' (PETSCII $A4); 27 and 29 (the
+brackets, which also show ASCII '{' '}': src/c64/io_c64.s io_scr) decode as
+'[' and ']', 28 (pound, ASCII '\\') as '\\', 30 (up arrow) as '^'.
 Usage: screen2txt.py DUMP   (also importable: decode(bytes) -> str)
 """
 import sys
@@ -16,6 +18,7 @@ def ch(c):
     if 65 <= c <= 90: return chr(c)         # 65..90 = A..Z
     if 32 <= c <= 63: return chr(c)
     if c == 100: return "_"
+    if 27 <= c <= 30: return "[\\]^"[c - 27]
     return "."
 
 
