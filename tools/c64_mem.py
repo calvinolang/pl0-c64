@@ -138,6 +138,10 @@ def main(argv):
     ok = True
     for name, limit in LIMITS.items():
         if name not in seg:
+            # a renamed or removed segment must not pass the gate unchecked
+            print("c64_mem: FAIL: segment %s is not in the map %s (renamed? update LIMITS)"
+                  % (name, argv[1]))
+            ok = False
             continue
         start, end, _ = seg[name]
         free = limit - end

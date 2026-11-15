@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Self-test of tools/check_error_docs.py (run by `make test`): a complete
 document passes; a missing message, a message only as plain text, a
-message only inside a longer code span, a missing table and a bad
-argument fail."""
+message only inside a longer code span, a missing table, a missing
+document and a bad argument fail."""
 import os
 import subprocess
 import sys
@@ -62,7 +62,7 @@ rc, out = run(ERRORS_C, good, extra=["--bogus"])
 check(rc == 2, "bad argument accepted")
 
 rc, out = run(ERRORS_C, None)
-check(rc == 0 and "skipped" in out, "missing document not skipped")
+check(rc == 2 and "error" in out, "missing document not reported")
 
 # the real files pass
 p = subprocess.run([sys.executable, tool], capture_output=True, text=True)

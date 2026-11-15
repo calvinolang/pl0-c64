@@ -12,8 +12,8 @@ as a code span of its own, exactly: `undeclared name`, `";" expected`
 "ok" pass on any page that happens to contain the word).
 
 Exit 0 ok, 1 a message is missing (each printed), 2 when a file or the
-table cannot be read. If the document does not exist the check is
-skipped (exit 0), as before docs/LANGUAGE.md was written.
+table cannot be read (a missing document is an error too: docs/LANGUAGE.md
+exists, so its absence means a broken tree or a wrong --doc path).
 """
 import os
 import re
@@ -50,9 +50,6 @@ def main(argv):
         else:
             print("usage: check_error_docs.py [--errors FILE] [--doc FILE]")
             return 2
-    if not os.path.exists(doc):
-        print("skipped: %s not found" % doc)
-        return 0
     try:
         with open(errors) as f:
             src = f.read()
