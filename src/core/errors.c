@@ -26,7 +26,7 @@ static const char *const err_msgs[E_COUNT] = {
     /* E_ARGS */            "wrong number of arguments",
     /* E_TOO_MANY_IDENTS */ "too many names",
     /* E_PROGRAM_TOO_BIG */ "program too big",
-    /* E_NESTING */         "procedures nested too deep",
+    /* E_NESTING */         "nested too deeply",
     /* E_DIV_ZERO */        "division by zero",
     /* E_DOMAIN */          "domain error",
     /* E_OVERFLOW */        "number overflow",
@@ -36,5 +36,6 @@ static const char *const err_msgs[E_COUNT] = {
 };
 
 const char *err_text(uint8_t code) {
-    return code < E_COUNT ? err_msgs[code] : "unknown error";
+    if (code < E_COUNT) return err_msgs[code];
+    return "unknown error";
 }
