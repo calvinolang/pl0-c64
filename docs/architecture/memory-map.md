@@ -39,7 +39,7 @@ code and main program (Tasks 13-16) are not in it yet.
 | **free** | **`$7FEC-$97FF`** | **6,164** | for Tasks 13-16 (heap unused) |
 | C stack | `$9800-$9FFF` | 2,048 | cc65 parameter stack |
 | `BASICBSS` | `$A000-$BFFF` | 8,192 | the source buffer `source[MAX_SOURCE]` (only this) |
-| `HIBSS` | `$C000-$CBFF` | 3,072 | **unused** |
+| `HIBSS` | `$C000-$CBFF` | 3,072 | **unused** here; the editor uses it from Task 14 (below) |
 | colour matrix | `$CC00-$CFE7` | 1,000 | bitmap colours (VIC bank 3) |
 | bitmap | `$E000-$FF3F` | 8,000 | RAM under the KERNAL |
 
@@ -72,3 +72,43 @@ and `main` (the spike estimated 4.8-6.5 KB for these), plus the unused
   error texts.
 - `HIBSS` and the colour matrix: `$C000-$CBFF` is free; `crt0` does not
   clear it.
+
+## The program with the editor (Task 14)
+
+Measured from `build/c64/pl0.map` (`make c64`): `main.c`, the editor
+(`editor.c`, `edscreen.s`, `textbuf.c`), all of `src/core` and the C64
+layers. `vm.o` and `turtle.o` are linked although `main` does not run
+programs yet (Task 15), so the numbers include them.
+
+| Module | Code | Rodata/data | BSS | HIBSS | Notes |
+|---|---:|---:|---:|---:|---|
+| `main.c` | 205 | 452 | 4,756 | | `Program prog` 4,741; starter text 380; source buffer 8,192 in `BASICBSS` |
+| `editor.c` | 3,540 | 765 | | 181 | help page about 650 of the rodata |
+| `edscreen.s` | 792 | | | 279 | 256-byte ASCII-to-screen-code table |
+| `textbuf.c` | 2,072 | | | | 952 of it unused here (line queries, up/down/home/end: the editor scans in assembly) |
+| core + C64 layers | 16,599 | 875 | 4,289 | | as above |
+| cc65 runtime + libc | 2,142 (+ startup 51) | 107 | 1 | | |
+
+| Area | Range | Bytes |
+|---|---|---:|
+| CODE | `$0840-$6B45` | 25,350 |
+| RODATA + DATA + INIT | `$6B46-$73B6` | 2,161 |
+| BSS | `$73B7-$970C` | 9,046 |
+| **free below the C stack** | **`$970D-$97FF`** | **243** |
+| HIBSS used | `$C000-$C1CB` | 460 (2,612 free) |
+
+Total image `$0801-$73B6` (27,574 bytes). The editor's variables moved to
+`HIBSS` because low RAM was full: with them in the ordinary BSS the image
+overflowed `$97FF` by 80 bytes. crt0 does not clear `HIBSS`, so `main`
+clears it (`memset(_HIBSS_RUN__, 0, _HIBSS_SIZE__)`) before anything else.
+
+**Task 15 needs room** (run screen, picker, disk access), so it must free low
+RAM first. The options, measured or sized here:
+
+- Move a big core array to `HIBSS` (2,612 bytes free there): the VM stack
+  (`stack[512]`, 2,560 bytes) fits; `Program.code` (3,072) no longer fits
+  next to the editor's 460 bytes.
+- Leave out the textbuf functions the program does not call (952 bytes of
+  code; for example behind a C64-only define, the host tests keep them).
+- Put Task 15's own variables in `HIBSS` too, and keep long texts (help
+  page, example descriptions) on the disk.
