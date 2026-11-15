@@ -8,6 +8,15 @@ number here comes from a linker map or a headless VICE run made by
 Tools: cc65 2.18 (Ubuntu package 2.19-1), VICE 3.7.1 `x64sc`, PAL C64, stock
 ROMs (BASIC 901226-01, KERNAL 901227-03).
 
+This is the record of the spike as it was written before the program
+existed. Some of its proposals changed later; the final state is in
+[memory-map.md](memory-map.md) and [overview.md](overview.md):
+`code[768]` did not go to HIBSS (the VM stack and the editor's variables
+did), the web demo with an emulator was dropped (no ROMs that may be
+published; see [media.md](media.md)), and the recursion depth of "about
+60 levels" (section 7) measures 101 to 168 levels with the final frame
+layout ([LANGUAGE.md](../LANGUAGE.md#limits)).
+
 ## 0. Decisions at a glance
 
 | Question | Answer |

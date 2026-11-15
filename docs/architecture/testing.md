@@ -37,6 +37,7 @@ regenerates the VICE captures in `docs/img/c64/` and the demo GIF;
 | Layer | Target | Covers |
 |---|---|---|
 | host unit tests | `make test` | `tests/test_*.c`: lexer, numbers, compiler and VM, errors, turtle, text buffer |
+| documentation | `make test` | error messages documented, PL/0 code blocks of the guides, Markdown links |
 | host example goldens | `make test` (`make examples`) | every example against `.expected` / `.lines`, the example rules, the instruction budget, `examples-budget.md` current |
 | numbers on the C64 | `make c64-num` | the BASIC ROM float layer |
 | bitmap | `make c64-gfx` | line drawing against the host reference |
@@ -86,9 +87,10 @@ tree, `make clean && make check`: PASSED in 273 s.
 
 ## VICE keyboard (for trying the program by hand)
 
-VICE maps the PC keyboard by position: Esc is RUN/STOP, Page Up is
-RESTORE, Home is CLR/HOME, Backspace is INST/DEL, F1-F8 are the C64
-function keys. In the harness keys are typed with the monitor's `keybuf`
+In both of VICE's keyboard mappings (symbolic, the default, and
+positional; VICE 3.7.1 `gtk3_sym.vkm`, `gtk3_pos.vkm`): Esc is RUN/STOP,
+Page Up is RESTORE, Home is CLR/HOME, Backspace is INST/DEL, Insert is
+SHIFT+INST/DEL, F1-F8 are the C64 function keys (F2 gives SHIFT+F1). In the harness keys are typed with the monitor's `keybuf`
 as PETSCII codes instead (see `tests/vice_app.sh` for the codes).
 
 ## CI
@@ -106,6 +108,14 @@ read-only `contents` permission and time limits (host 15 minutes, target
   `pl0host --count-instr` can report executed P-code instructions, math
   function calls and turtle sin/cos evaluations; the C64 build never defines
   `PL0_TEST_HOOKS`, so the counters cost nothing there).
+- `make test` checks the documentation: every error message of
+  `src/core/errors.c` is in `docs/LANGUAGE.md` as a code span
+  (`tools/check_error_docs.py`); every ```` ```pl0 ```` block of
+  `README.md`, `docs/USER-GUIDE.md` and `docs/LANGUAGE.md` compiles, runs
+  or fails as its marker says, and copies of the examples equal the files
+  (`tools/check_doc_code.py`); every relative link, image and anchor of
+  every Markdown file resolves (`tools/check_md_links.py`). Each checker
+  has a self-test of its failure cases (`tools/test_check_*.py`).
 - `make test` also runs `tests/run_examples.sh` (same as `make examples`):
   every `examples/*.pl0` against its golden (`.expected` text through
   `tools/compare_output.py`, or `.lines` exact line dump), the source and
