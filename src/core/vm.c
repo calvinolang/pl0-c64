@@ -6,9 +6,15 @@
  * disp[] indexed by absolute declaration level instead of a static-link walk,
  * num_copy instead of struct assignment, state in statics.
  *
- * Stack: sp points to the next free cell. The stack is checked only by INT,
- * which reserves the frame and verifies room for the block's maximum number
- * of temporaries (computed by the compiler), so pushes need no check. */
+ * Stack: sp points to the next free cell, bp to the current frame base.
+ * The stack is checked only when a frame is created: CAL checks room for the
+ * whole new frame (header, locals and the block's maximum number of
+ * temporaries, read from the callee's INT) before writing anything, and INT
+ * checks again before reserving (this covers the main program). So pushes
+ * need no check and the stack top never passes MAX_STACK. A runaway
+ * recursion ends with E_STACK at the line of the call that did not fit.
+ *
+ * Frame header cells hold raw pointers (memcpy, no num_t semantics). */
 #include <string.h>
 #include "core/vm.h"
 #include "platform/io.h"
@@ -18,6 +24,26 @@
 static num_t stack[MAX_STACK];
 static num_t *disp[MAX_NEST + 1];   /* frame base per declaration level */
 static char numbuf[16];
+#ifdef PL0_TEST_HOOKS
+static num_t *high;                 /* highest sp seen (test hook) */
+#endif
+
+/* A header cell must be able to hold a pointer (on the C64: 5 >= 2). */
+#ifndef __CC65__
+typedef char vm_cell_holds_pointer[sizeof(num_t) >= sizeof(void *) ? 1 : -1];
+#endif
+
+/* Nonzero if fewer than need bytes are free above sp. */
+static int no_room(const num_t *sp, uint16_t need)
+{
+    return (size_t)((const char *)(stack + MAX_STACK) - (const char *)sp) < (size_t)need;
+}
+
+/* Bytes a block's frame needs above its header: locals plus temporaries. */
+static uint16_t frame_need(const Instr *in)
+{
+    return (uint16_t)(FRAME_BYTES(in->arg) + (uint16_t)in->lvl * sizeof(num_t));
+}
 
 static int fail(PL0Error *err, uint8_t code, int16_t line)
 {
@@ -29,13 +55,22 @@ static int fail(PL0Error *err, uint8_t code, int16_t line)
 int pl0_run(const Program *p, PL0Error *err)
 {
     const Instr *ip = p->code;
-    num_t *sp = stack;
+    const Instr *ra;
+    num_t *sp = stack + FRAME_HDR;      /* main frame header: unused */
+    num_t *bp = stack;
+    uint8_t l;
     int c;
 
     err->code = E_NONE;
     err->line = 0;
     disp[0] = stack;
+#ifdef PL0_TEST_HOOKS
+    high = sp;
+#endif
     for (;;) {
+#ifdef PL0_TEST_HOOKS
+        if (sp > high) high = sp;
+#endif
         switch (ip->op) {
         case OP_LIT:
             num_copy(sp, (const num_t *)((const char *)p->consts + ip->arg));
@@ -49,19 +84,43 @@ int pl0_run(const Program *p, PL0Error *err)
             --sp;
             num_copy(CELL_AT(disp[ip->lvl], ip->arg), sp);
             break;
+        case OP_CAL:
+            /* The caller has pushed the arguments. Check room for the whole
+             * new frame before writing its header. */
+            ra = p->code + CAL_ADDR(ip->arg);           /* callee's INT */
+            if (no_room(sp, (uint16_t)(FRAME_HDR * sizeof(num_t) + frame_need(ra))))
+                return fail(err, E_STACK, (int16_t)CAL_LINE(ip));
+            memcpy(sp + FRAME_DL, &bp, sizeof bp);
+            ++ip;
+            memcpy(sp + FRAME_RA, &ip, sizeof ip);
+            bp = sp;
+            sp += FRAME_HDR;
+            ip = ra;
+            continue;
         case OP_INT:
-            if ((size_t)((char *)(stack + MAX_STACK) - (char *)sp) <
-                (size_t)ip->arg + (size_t)ip->lvl * sizeof(num_t))
-                return fail(err, E_STACK, 0);
-            memset(sp, 0, (size_t)ip->arg);   /* variables start at 0 */
-            sp = CELL_AT(sp, ip->arg);
+            if (no_room(sp, frame_need(ip))) {
+                /* Only reachable for the main program (CAL checked a
+                 * procedure's frame); report the call's line if any. */
+                if (bp == stack) return fail(err, E_STACK, 1);
+                memcpy(&ra, bp + FRAME_RA, sizeof ra);
+                return fail(err, E_STACK, (int16_t)CAL_LINE(ra - 1));
+            }
+            l = FRAME_LEVEL(ip->arg);
+            memcpy(bp + FRAME_SL, &disp[l], sizeof disp[l]);
+            disp[l] = bp;
+            memset(sp, 0, FRAME_BYTES(ip->arg));   /* variables start at 0 */
+            sp = CELL_AT(sp, FRAME_BYTES(ip->arg));
             break;
         case OP_OPR:
             switch (ip->lvl) {
             case OPR_RET:
-                /* Only the main program returns until Task 7, which pops the
-                 * frame (DL, RA, saved display entry) unless bp == stack. */
-                return 0;
+                if (bp == stack) return 0;       /* main program ends */
+                l = FRAME_LEVEL(ip->arg);
+                memcpy(&disp[l], bp + FRAME_SL, sizeof disp[l]);
+                sp = CELL_AT(bp, -(int16_t)FRAME_BYTES(ip->arg));  /* pop params */
+                memcpy(&ip, bp + FRAME_RA, sizeof ip);
+                memcpy(&bp, bp + FRAME_DL, sizeof bp);
+                continue;
             case OPR_NEG:
                 num_neg(sp - 1, sp - 1);
                 break;
@@ -133,3 +192,7 @@ int pl0_run(const Program *p, PL0Error *err)
         ++ip;
     }
 }
+
+#ifdef PL0_TEST_HOOKS
+unsigned vm_stack_high_water(void) { return (unsigned)(high - stack); }
+#endif

@@ -265,6 +265,177 @@ static void runtime_error_in_loop(void) {
                  "ERROR line 6: division by zero");
 }
 
+/* ---- Task 7: procedures ---- */
+static void proc_no_params(void) {
+    CHECK_EQ_STR(run("procedure p; !1; call p."), "1");
+    CHECK_EQ_STR(run("procedure p; !1; begin call p; call p end."), "11");
+}
+static void proc_params(void) {
+    CHECK_EQ_STR(run("procedure add(a,b); !a+b; call add(2,3)."), "5");
+    /* arguments are evaluated left to right and bound in order */
+    CHECK_EQ_STR(run("procedure sub(a,b); !a-b; call sub(10,3)."), "7");
+    CHECK_EQ_STR(run("var x; procedure p(a,b,c); begin !a; !b; !c end; begin x:=2; call p(x, x*3, (x+1)*x) end."),
+                 "266");
+}
+static void factorial_recursive(void) {
+    CHECK_EQ_STR(run("var r;\n"
+                     "procedure fact(n);\n"
+                     "begin\n"
+                     "  if n <= 1 then r := 1;\n"
+                     "  if n > 1 then begin call fact(n-1); r := r*n end\n"
+                     "end;\n"
+                     "begin call fact(10); !r end."), "3628800");
+}
+static void fib_recursive(void) {
+    CHECK_EQ_STR(run("var r;\n"
+                     "procedure fib(n);\n"
+                     "var a;\n"
+                     "begin\n"
+                     "  if n < 2 then r := n;\n"
+                     "  if n >= 2 then begin call fib(n-1); a := r; call fib(n-2); r := r+a end\n"
+                     "end;\n"
+                     "begin call fib(15); !r end."), "610");
+}
+static void nested_proc_sees_outer_var(void) {
+    CHECK_EQ_STR(run("var g;\n"
+                     "procedure outer(x);\n"
+                     "var y;\n"
+                     "  procedure inner(z);\n"
+                     "  begin !g; !' '; !x; !' '; !y; !' '; !z; y := y+100; g := g+1 end;\n"
+                     "begin y := x*2; call inner(x+1); !' '; !y end;\n"
+                     "begin g := 7; call outer(3); !' '; !g end."), "7 3 6 4 106 8");
+    /* a nested procedure may call its enclosing procedure (display restored) */
+    CHECK_EQ_STR(run("procedure outer(n);\n"
+                     "  procedure inner;\n"
+                     "  begin if n > 0 then call outer(n-1) end;\n"
+                     "begin !n; call inner; !n end;\n"
+                     "call outer(3)."), "32100123");
+    /* four nested levels see every enclosing level */
+    CHECK_EQ_STR(run("var a; procedure p1(b); procedure p2(c); procedure p3(d); procedure p4(e);"
+                     " !a+b+c+d+e; call p4(5); call p3(4); call p2(3); begin a:=1; call p1(2) end."), "15");
+}
+static void params_are_by_value(void) {
+    CHECK_EQ_STR(run("var a; procedure p(x); begin x := x+1; !x end; begin a := 5; call p(a); !' '; !a end."),
+                 "6 5");
+}
+static void args_count_mismatch(void) {
+    PL0Error e;
+    CHECK_EQ_INT(pl0_compile("procedure p(a,b); ; call p(1).", &prog, &e), 1);
+    CHECK_EQ_INT(e.code, E_ARGS);
+    CHECK_EQ_STR(run("procedure p(a,b); ; call p(1)."), "ERROR line 1: wrong number of arguments");
+    CHECK_EQ_STR(run("procedure p(a,b); ; call p(1,2,3)."), "ERROR line 1: wrong number of arguments");
+    CHECK_EQ_STR(run("procedure p(a,b); ; call p."), "ERROR line 1: wrong number of arguments");
+    CHECK_EQ_STR(run("procedure p; ; call p(1)."), "ERROR line 1: wrong number of arguments");
+}
+static void call_non_proc(void) {
+    PL0Error e;
+    CHECK_EQ_INT(pl0_compile("var a; call a.", &prog, &e), 1);
+    CHECK_EQ_INT(e.code, E_NOT_PROC);
+    CHECK_EQ_STR(run("const c=1; call c."), "ERROR line 1: not a procedure");
+    CHECK_EQ_STR(run("call q."), "ERROR line 1: undeclared name");
+    CHECK_EQ_STR(run("call 1."), "ERROR line 1: identifier expected");
+}
+static void proc_not_a_variable(void) {
+    CHECK_EQ_STR(run("procedure p; ; p := 1."), "ERROR line 1: not a variable");
+    CHECK_EQ_STR(run("procedure p; ; !p."), "ERROR line 1: not a variable");
+    CHECK_EQ_STR(run("procedure p; p := 1; ."), "ERROR line 1: not a variable");
+}
+static void proc_redeclared(void) {
+    CHECK_EQ_STR(run("procedure p(a, a); ; ."), "ERROR line 1: name already declared");
+    CHECK_EQ_STR(run("procedure p(a); var a; ; ."), "ERROR line 1: name already declared");
+    CHECK_EQ_STR(run("procedure p(a); const a=1; ; ."), "ERROR line 1: name already declared");
+    CHECK_EQ_STR(run("procedure p; ; procedure p; ; ."), "ERROR line 1: name already declared");
+    CHECK_EQ_STR(run("var p; procedure p; ; ."), "ERROR line 1: name already declared");
+    /* a parameter may shadow an outer name, even the procedure's own */
+    CHECK_EQ_STR(run("var a; procedure p(a, p); !a+p; begin a := 1; call p(2, 3); !a end."), "51");
+}
+static void proc_syntax_errors(void) {
+    CHECK_EQ_STR(run("procedure ; ."), "ERROR line 1: identifier expected");
+    CHECK_EQ_STR(run("procedure p ."), "ERROR line 1: \";\" expected");
+    CHECK_EQ_STR(run("procedure p(a ; ."), "ERROR line 1: \")\" expected");
+    CHECK_EQ_STR(run("procedure p(a,) ; ."), "ERROR line 1: identifier expected");
+    CHECK_EQ_STR(run("procedure p; !1 ."), "ERROR line 1: \";\" expected");
+    CHECK_EQ_STR(run("procedure p(a); ; call p(1 ."), "ERROR line 1: \")\" expected");
+}
+/* n procedures nested inside each other; the innermost prints 1. */
+static const char *nested_procs(int n) {
+    char *p = big;
+    int i;
+    for (i = 0; i < n; i++) p += sprintf(p, "procedure p%d; ", i);
+    p += sprintf(p, "!1");
+    for (i = n - 1; i >= 0; i--) p += sprintf(p, "; call p%d", i);
+    strcpy(p, ".");
+    return big;
+}
+static void nesting_too_deep(void) {
+    PL0Error e;
+    CHECK_EQ_STR(run(nested_procs(MAX_NEST)), "1");                  /* 4 levels: ok */
+    CHECK_EQ_INT(pl0_compile(nested_procs(MAX_NEST + 1), &prog, &e), 1);
+    CHECK_EQ_INT(e.code, E_NESTING);
+    CHECK_EQ_STR(run(nested_procs(MAX_NEST + 1)), "ERROR line 1: nested too deeply");
+}
+static void nesting_counters_per_body(void) {
+    /* a procedure body full of nested statements does not use up the main
+       program's statement nesting budget, and vice versa */
+    char *p = big;
+    int i;
+    p += sprintf(p, "procedure q; ");
+    for (i = 0; i < MAX_STMT_NEST; i++) p += sprintf(p, "begin ");
+    p += sprintf(p, "!1");
+    for (i = 0; i < MAX_STMT_NEST; i++) p += sprintf(p, " end");
+    p += sprintf(p, "; ");
+    for (i = 0; i < MAX_STMT_NEST; i++) p += sprintf(p, "begin ");
+    p += sprintf(p, "call q");
+    for (i = 0; i < MAX_STMT_NEST; i++) p += sprintf(p, " end");
+    strcpy(p, ".");
+    CHECK_EQ_STR(run(big), "1");
+}
+static void runaway_recursion(void) {
+    CHECK_EQ_STR(run("procedure p; call p; call p."), "ERROR line 1: stack overflow (too deep)");
+    CHECK(vm_stack_high_water() <= MAX_STACK);
+    CHECK(vm_stack_high_water() > MAX_STACK - 8);   /* it really filled the stack */
+    /* the line is that of the call that did not fit */
+    CHECK_EQ_STR(run("var n;\nprocedure p;\nbegin\n  n := n + 1;\n  call p\nend;\ncall p."),
+                 "ERROR line 5: stack overflow (too deep)");
+    CHECK(vm_stack_high_water() <= MAX_STACK);
+    /* with parameters, locals and temporaries in each frame */
+    CHECK_EQ_STR(run("procedure p(a, b);\nvar c, d;\nbegin c := a*(b+(a*(b+1))); call p(c, d+1) end;\ncall p(1, 2)."),
+                 "ERROR line 3: stack overflow (too deep)");
+    CHECK(vm_stack_high_water() <= MAX_STACK);
+    /* the VM is usable again after an overflow */
+    CHECK_EQ_STR(run("procedure p(a); !a; call p(4)."), "4");
+}
+static const char *sum_program(long n) {
+    sprintf(big, "var r;\n"
+                 "procedure sum(n);\n"
+                 "begin\n"
+                 "  if n = 0 then r := 0;\n"
+                 "  if n > 0 then begin call sum(n-1); r := r+n end\n"
+                 "end;\n"
+                 "begin call sum(%ld); !r end.", n);
+    return big;
+}
+static void recursion_depth(void) {
+    CHECK_EQ_STR(run(sum_program(40)), "820");
+    CHECK(vm_stack_high_water() <= MAX_STACK);
+    CHECK_EQ_STR(run(sum_program(100000L)), "ERROR line 5: stack overflow (too deep)");
+    CHECK(vm_stack_high_water() <= MAX_STACK);
+}
+static void stopped_in_procedure(void) {
+    io_host_break_after(4);
+    CHECK_EQ_STR(run("procedure p(x);\nbegin\n  while x > 0 do x := x\nend;\ncall p(1)."), "ERROR line 3: stopped");
+    io_host_break_after(0);
+}
+static void runtime_error_in_procedure(void) {
+    CHECK_EQ_STR(run("procedure p(x);\n  !1/x;\nbegin call p(2); call p(0) end."), "ERROR line 2: division by zero");
+}
+static void proc_after_vars_and_consts(void) {
+    CHECK_EQ_STR(run("const k=10; var a; procedure p(x); var b; begin b := x*k; a := a+b end;"
+                     " begin call p(1); call p(2); !a end."), "30");
+    /* procedures declared at the same level: a later one may call an earlier one */
+    CHECK_EQ_STR(run("procedure a(x); !x; procedure b(y); call a(y+1); call b(1)."), "2");
+}
+
 int main(void) {
     output_literal();
     precedence_and_parens();
@@ -309,5 +480,23 @@ int main(void) {
     if_while_nesting_limit();
     while_stopped();
     runtime_error_in_loop();
+    proc_no_params();
+    proc_params();
+    factorial_recursive();
+    fib_recursive();
+    nested_proc_sees_outer_var();
+    params_are_by_value();
+    args_count_mismatch();
+    call_non_proc();
+    proc_not_a_variable();
+    proc_redeclared();
+    proc_syntax_errors();
+    nesting_too_deep();
+    nesting_counters_per_body();
+    runaway_recursion();
+    recursion_depth();
+    stopped_in_procedure();
+    runtime_error_in_procedure();
+    proc_after_vars_and_consts();
     TEST_MAIN_END();
 }

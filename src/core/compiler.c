@@ -15,9 +15,11 @@
 
 enum { K_CONST, K_VAR, K_PROC };
 
-/* val: K_CONST byte offset into consts, K_VAR byte offset in its frame,
- * K_PROC code address (Task 7). */
-typedef struct { char name[17]; uint8_t kind; uint8_t level; int16_t val; } Sym;
+/* val: K_CONST byte offset into consts, K_VAR byte offset in its frame
+ * (negative for parameters), K_PROC code address of its INT.
+ * level: block level of the declaration (a procedure's body is level + 1).
+ * nparams: K_PROC only. */
+typedef struct { char name[17]; uint8_t kind; uint8_t level; uint8_t nparams; int16_t val; } Sym;
 
 static Lexer lx;
 static Program *prog;
@@ -32,6 +34,7 @@ static uint8_t nest;       /* current expression nesting: ( and unary signs */
 static uint8_t snest;      /* current structured-statement nesting */
 
 static void expression(void);
+static void block(uint8_t first, uint8_t nparams);
 
 static void fail(uint8_t code)
 {
@@ -115,6 +118,7 @@ static Sym *declare(uint8_t kind, uint8_t first)
     strcpy(s->name, lx.text);
     s->kind = kind;
     s->level = level;
+    s->nparams = 0;
     s->val = 0;
     return s;
 }
@@ -246,7 +250,8 @@ static void condition(void)
 static void statement(void)
 {
     Sym *s;
-    uint16_t at, top;
+    uint16_t at, top, line;
+    uint8_t n;
     switch (lx.tok) {
     case T_IDENT:
         s = find();
@@ -295,6 +300,30 @@ static void statement(void)
         prog->code[at].arg = (int16_t)prog->ncode;
         --snest;
         break;
+    case T_CALL:
+        /* call ident ["(" expression {"," expression} ")"]: the arguments
+         * are pushed left to right and become the callee's parameters. */
+        line = lx.line;
+        next();
+        if (lx.tok != T_IDENT) fail(E_EXPECTED_IDENT);
+        s = find();
+        if (!s) fail(E_UNDECLARED);
+        if (s->kind != K_PROC) fail(E_NOT_PROC);
+        next();
+        n = 0;
+        if (lx.tok == T_LPAREN) {
+            do {
+                next();
+                expression();
+                if (++n > s->nparams) fail(E_ARGS);
+            } while (lx.tok == T_COMMA);
+            expect(T_RPAREN, E_EXPECTED_RPAREN);
+        }
+        if (n != s->nparams) fail(E_ARGS);
+        if (line > CAL_MAX_LINE) line = CAL_MAX_LINE;
+        emit(OP_CAL, CAL_LVL(line), CAL_ARG(s->val, line));
+        depth -= n;                       /* RET pops the parameters */
+        break;
     case T_BANG:
         next();
         if (lx.tok == T_STRING) {
@@ -335,14 +364,51 @@ static void const_decl(uint8_t first)
     next();
 }
 
-/* block = [const ...;] [var ...;] statement
- * Task 7 adds procedure declarations between var and the body (with a JMP
- * over their code, emitted only when a procedure exists). */
-static void block(void)
+/* procedure ident ["(" ident {"," ident} ")"] ";" block ";"
+ * Declared in the scope starting at first. The parameters are the first
+ * names of the procedure's own scope, so they clash with each other and with
+ * its locals (E_REDECLARED), and may shadow outer names. */
+static void proc_decl(uint8_t first)
 {
-    uint8_t first = nsyms;
+    Sym *s;
+    uint8_t pfirst, n, i;
+
+    next();
+    s = declare(K_PROC, first);
+    s->val = (int16_t)prog->ncode;       /* its block starts with its INT */
+    next();
+    if (++level > MAX_NEST) fail(E_NESTING);
+    pfirst = nsyms;
+    if (lx.tok == T_LPAREN) {
+        do {
+            next();
+            declare(K_VAR, pfirst);
+            next();
+        } while (lx.tok == T_COMMA);
+        expect(T_RPAREN, E_EXPECTED_RPAREN);
+    }
+    /* parameters sit just below the frame header: a, b -> -2, -1 cells */
+    n = (uint8_t)(nsyms - pfirst);
+    for (i = 0; i < n; i++) syms[pfirst + i].val = (int16_t)(((int16_t)i - n) * CELL);
+    s->nparams = n;
+    expect(T_SEMI, E_EXPECTED_SEMI);
+    block(pfirst, n);
+    --level;
+    expect(T_SEMI, E_EXPECTED_SEMI);
+}
+
+/* block = [const ...;] [var ...;] {procedure ...;} statement
+ * Code: INT, then (only if procedures follow) a JMP over their code, the
+ * procedures, and the body. The INT comes first so a procedure's address is
+ * known before its nested procedures (which may call it) are compiled.
+ * first: index of the block's first name (its parameters, if any).
+ * maxdepth/depth belong to the body; nested procedures overwrite them, so
+ * they are reset right before the body (snest and nest are 0 at every
+ * declaration, since declarations never occur inside a statement). */
+static void block(uint8_t first, uint8_t nparams)
+{
     int16_t off = FRAME_HDR * CELL;      /* next variable's byte offset */
-    uint16_t at;
+    uint16_t at, jmp;
     Sym *s;
 
     if (lx.tok == T_CONST) {
@@ -359,11 +425,17 @@ static void block(void)
         } while (lx.tok == T_COMMA);
         expect(T_SEMI, E_EXPECTED_SEMI);
     }
+    at = emit(OP_INT, 0, FRAME_ARG(off - FRAME_HDR * CELL, level));
+    if (lx.tok == T_PROCEDURE) {
+        jmp = emit(OP_JMP, 0, 0);
+        do proc_decl(first); while (lx.tok == T_PROCEDURE);
+        prog->code[jmp].arg = (int16_t)prog->ncode;
+    }
     maxdepth = 0;
-    at = emit(OP_INT, 0, off);
+    depth = 0;
     statement();
     prog->code[at].lvl = maxdepth;       /* temporaries to check room for */
-    emit(OP_OPR, OPR_RET, 0);
+    emit(OP_OPR, OPR_RET, FRAME_ARG(nparams * CELL, level));
     nsyms = first;
 }
 
@@ -384,7 +456,7 @@ int pl0_compile(const char *src, Program *p, PL0Error *err)
     lex_init(&lx, src);
     if (setjmp(on_error)) return 1;
     next();
-    block();
+    block(0, 0);
     if (lx.tok != T_PERIOD) fail(E_EXPECTED_PERIOD);
     return 0;
 }

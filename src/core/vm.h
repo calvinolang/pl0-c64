@@ -7,4 +7,10 @@
  * runtime error (err->code, err->line set). */
 int pl0_run(const Program *p, PL0Error *err);
 
+#ifdef PL0_TEST_HOOKS
+/* Test builds only: the highest stack top (in cells) the last pl0_run
+ * reached. It never exceeds MAX_STACK. */
+unsigned vm_stack_high_water(void);
+#endif
+
 #endif
