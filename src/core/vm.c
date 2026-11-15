@@ -122,19 +122,19 @@ int pl0_run(const Program *p, PL0Error *err)
                 memcpy(&bp, bp + FRAME_DL, sizeof bp);
                 continue;
             case OPR_NEG:
-                num_neg(sp - 1, sp - 1);
+                if (num_neg(sp - 1, sp - 1)) return fail(err, E_OVERFLOW, ip->arg);
                 break;
             case OPR_ADD:
                 --sp;
-                num_add(sp - 1, sp - 1, sp);
+                if (num_add(sp - 1, sp - 1, sp)) return fail(err, E_OVERFLOW, ip->arg);
                 break;
             case OPR_SUB:
                 --sp;
-                num_sub(sp - 1, sp - 1, sp);
+                if (num_sub(sp - 1, sp - 1, sp)) return fail(err, E_OVERFLOW, ip->arg);
                 break;
             case OPR_MUL:
                 --sp;
-                num_mul(sp - 1, sp - 1, sp);
+                if (num_mul(sp - 1, sp - 1, sp)) return fail(err, E_OVERFLOW, ip->arg);
                 break;
             case OPR_ODD:
                 num_from_int(sp - 1, (int16_t)num_is_odd(sp - 1));
@@ -155,7 +155,8 @@ int pl0_run(const Program *p, PL0Error *err)
                 break;
             case OPR_DIV:
                 --sp;
-                if (num_div(sp - 1, sp - 1, sp)) return fail(err, E_DIV_ZERO, ip->arg);
+                c = num_div(sp - 1, sp - 1, sp);
+                if (c) return fail(err, c == 1 ? E_DIV_ZERO : E_OVERFLOW, ip->arg);
                 break;
             }
             break;

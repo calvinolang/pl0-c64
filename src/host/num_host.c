@@ -24,18 +24,22 @@ int num_parse(const char *s, num_t *r)
     return 0;
 }
 
-void num_add(num_t *r, const num_t *a, const num_t *b) { *r = *a + *b; }
-void num_sub(num_t *r, const num_t *a, const num_t *b) { *r = *a - *b; }
-void num_mul(num_t *r, const num_t *a, const num_t *b) { *r = *a * *b; }
+static int finite(double v) { return !(isnan(v) || isinf(v)); }
+
+int num_add(num_t *r, const num_t *a, const num_t *b) { double v = *a + *b; *r = v; return !finite(v); }
+int num_sub(num_t *r, const num_t *a, const num_t *b) { double v = *a - *b; *r = v; return !finite(v); }
+int num_mul(num_t *r, const num_t *a, const num_t *b) { double v = *a * *b; *r = v; return !finite(v); }
 
 int num_div(num_t *r, const num_t *a, const num_t *b)
 {
+    double v;
     if (*b == 0.0) return 1;
-    *r = *a / *b;
-    return 0;
+    v = *a / *b;
+    *r = v;
+    return finite(v) ? 0 : 2;
 }
 
-void num_neg(num_t *r, const num_t *a) { *r = -*a; }
+int num_neg(num_t *r, const num_t *a) { *r = -*a; return 0; }
 int num_cmp(const num_t *a, const num_t *b) { return (*a > *b) - (*a < *b); }
 int num_is_zero(const num_t *a) { return *a == 0.0; }
 
@@ -68,7 +72,7 @@ int num_fn(uint8_t fn, num_t *r, const num_t *a)
     case NUMFN_LOG: if (x <= 0.0) return 1; v = log(x); break;
     default: return 1;
     }
-    if (isnan(v) || isinf(v)) return 1;
+    if (!finite(v)) return 2;
     *r = v;
     return 0;
 }

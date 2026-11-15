@@ -358,7 +358,7 @@ static void const_decl(uint8_t first)
         next();
     }
     if (lx.tok != T_NUMBER) fail(E_EXPECTED_EXPR);
-    if (neg) num_neg(&v, &lx.value);
+    if (neg) (void)num_neg(&v, &lx.value);
     else num_copy(&v, &lx.value);
     s->val = add_const(&v);
     next();

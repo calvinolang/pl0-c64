@@ -65,7 +65,22 @@ static void fn_domain(void) {
     CHECK_EQ_INT(num_fn(NUMFN_EXP, &r, &a), 0); fmt_is(&r, "1");
     P(&a, "1"); CHECK_EQ_INT(num_fn(NUMFN_LOG, &r, &a), 0); fmt_is(&r, "0");
     CHECK_EQ_INT(num_fn(NUMFN_ATN, &r, &a), 0); fmt_is(&r, "0.785398163");
-    P(&a, "1000"); CHECK(num_fn(NUMFN_EXP, &r, &a) != 0);
+    P(&a, "1000"); CHECK_EQ_INT(num_fn(NUMFN_EXP, &r, &a), 2);   /* overflow */
+    num_from_int(&a, -1); CHECK_EQ_INT(num_fn(NUMFN_SQR, &r, &a), 1);   /* domain */
+    num_from_int(&a, 0); CHECK_EQ_INT(num_fn(NUMFN_LOG, &r, &a), 1);
+    num_from_int(&a, 4); num_copy(&r, &a); CHECK_EQ_INT(num_fn(NUMFN_SQR, &r, &r), 0); fmt_is(&r, "2");  /* r aliases a */
+}
+static void overflow_flags(void) {
+    num_t a, b, r; P(&a, "1e300"); P(&b, "1e300");
+    CHECK(num_mul(&r, &a, &b) != 0);
+    P(&a, "1.7e308"); CHECK(num_add(&r, &a, &a) != 0);
+    num_neg(&b, &a); CHECK(num_sub(&r, &b, &a) != 0);
+    num_from_int(&a, 3); CHECK_EQ_INT(num_neg(&r, &a), 0); fmt_is(&r, "-3");
+    num_from_int(&b, 4); CHECK_EQ_INT(num_add(&r, &a, &b), 0); fmt_is(&r, "7");
+    CHECK_EQ_INT(num_sub(&r, &a, &b), 0); fmt_is(&r, "-1");
+    CHECK_EQ_INT(num_mul(&a, &a, &b), 0); fmt_is(&a, "12");   /* aliasing */
+    P(&a, "1e300"); P(&b, "1e-300"); CHECK_EQ_INT(num_div(&r, &a, &b), 2);   /* quotient overflow */
+    num_from_int(&b, 0); CHECK_EQ_INT(num_div(&r, &a, &b), 1);              /* zero divisor */
 }
 static void to_i16_saturates(void) {
     num_t n; n = NAN; CHECK_EQ_INT(num_to_i16(&n), 0);
@@ -77,6 +92,6 @@ static void to_i16_saturates(void) {
 
 int main(void) {
     copy_and_alias(); format_integer(); format_fraction(); format_negative(); format_huge(); format_tiny(); format_misc(); format_bounds();
-    parse_ok(); parse_bad(); div_zero(); odd(); fn_domain(); to_i16_saturates();
+    parse_ok(); parse_bad(); div_zero(); odd(); fn_domain(); overflow_flags(); to_i16_saturates();
     TEST_MAIN_END();
 }

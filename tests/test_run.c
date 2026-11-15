@@ -191,6 +191,16 @@ static void syntax_errors(void) {
 static void div_zero_runtime_line(void) {
     CHECK_EQ_STR(run("var a;\nbegin\n  a := 0;\n  !1/a\nend."), "ERROR line 4: division by zero");
 }
+static void overflow_loop(void) {
+    CHECK_EQ_STR(run("var x; begin x := 10; while 1 = 1 do x := x * x end."), "ERROR line 1: number overflow");
+    /* 1e9 squared five times is 1e288: fine; one more is not (line 5) */
+    CHECK_EQ_STR(run("var x;\nbegin\n x := 1000000000;\n x:=x*x; x:=x*x; x:=x*x; x:=x*x; x:=x*x;\n !x\nend."), "1E+288");
+    CHECK_EQ_STR(run("var x;\nbegin\n x := 1000000000;\n x:=x*x; x:=x*x; x:=x*x; x:=x*x; x:=x*x;\n !x+x*x\nend."), "ERROR line 5: number overflow");
+    CHECK_EQ_STR(run("var x;\nbegin\n x := 1000000000;\n x:=x*x; x:=x*x; x:=x*x; x:=x*x; x:=x*x;\n !x*x\nend."), "ERROR line 5: number overflow");
+    CHECK_EQ_STR(run("var x;\nbegin\n x := 1000000000;\n x:=x*x; x:=x*x; x:=x*x; x:=x*x; x:=x*x;\n !x+x*1000000000*1000000000*1000000000*1000000000\nend."), "ERROR line 5: number overflow");
+    CHECK_EQ_STR(run("var x;\nbegin\n x := 1000000000;\n x:=x*x; x:=x*x; x:=x*x; x:=x*x; x:=x*x;\n !x/0.0000000001/0.0000000001/0.0000000001/0.0000000001\nend."), "ERROR line 5: number overflow");
+    CHECK_EQ_STR(run("var x;\nbegin\n x := 1000000000;\n x:=x*x; x:=x*x; x:=x*x; x:=x*x; x:=x*x;\n !0-x-x*x\nend."), "ERROR line 5: number overflow");
+}
 static void vars_start_at_zero(void) { CHECK_EQ_STR(run("var a; !a."), "0"); }
 
 static void if_true(void) { CHECK_EQ_STR(run("if 1=1 then !5."), "5"); }
@@ -399,7 +409,7 @@ static void runaway_recursion(void) {
                  "ERROR line 5: stack overflow (too deep)");
     CHECK(vm_stack_high_water() <= MAX_STACK);
     /* with parameters, locals and temporaries in each frame */
-    CHECK_EQ_STR(run("procedure p(a, b);\nvar c, d;\nbegin c := a*(b+(a*(b+1))); call p(c, d+1) end;\ncall p(1, 2)."),
+    CHECK_EQ_STR(run("procedure p(a, b);\nvar c, d;\nbegin c := a*(b+(a*(b+1))) - a*(b+(a*(b+1))); call p(c, d+1) end;\ncall p(1, 2)."),
                  "ERROR line 3: stack overflow (too deep)");
     CHECK(vm_stack_high_water() <= MAX_STACK);
     /* the VM is usable again after an overflow */
@@ -465,6 +475,7 @@ int main(void) {
     lexer_error_reported();
     syntax_errors();
     div_zero_runtime_line();
+    overflow_loop();
     vars_start_at_zero();
     if_true();
     if_false();
