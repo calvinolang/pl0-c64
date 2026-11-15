@@ -451,7 +451,9 @@ static void proc_decl(uint8_t first)
     }
     /* parameters sit just below the frame header: a, b -> -2, -1 cells */
     n = (uint8_t)(nsyms - pfirst);
-    for (i = 0; i < n; i++) syms[pfirst + i].val = (int16_t)(((int16_t)i - n) * CELL);
+    /* both operands cast: cc65 2.18 -O computes (int16_t)i - n (n an
+     * unsigned char) in 8 bits, giving 255 for -1 (cc65_bug_sub.c) */
+    for (i = 0; i < n; i++) syms[pfirst + i].val = (int16_t)(((int16_t)i - (int16_t)n) * CELL);
     s->nparams = n;
     expect(T_SEMI, E_EXPECTED_SEMI);
     block(pfirst, n);

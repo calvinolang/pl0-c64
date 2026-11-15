@@ -19,4 +19,10 @@ typedef struct { uint8_t code; uint16_t line; } PL0Error;
 /* Plain-language message for a code; "unknown error" if out of range. */
 const char *err_text(uint8_t code);
 
+/* The message every front end shows: "ERROR line N: <err_text(code)>"
+ * (no new line), written to buf, which needs ERR_MESSAGE_SIZE bytes. Built
+ * without printf (cc65's costs about 1.3 KB). */
+#define ERR_MESSAGE_SIZE 56     /* "ERROR line 65535: " + 36 + NUL */
+void err_message(char *buf, uint8_t code, uint16_t line);
+
 #endif

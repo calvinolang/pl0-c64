@@ -51,8 +51,10 @@ int main(int argc, char **argv)
     source[n] = '\0';
     rc = 0;
     if (pl0_compile(source, &prog, &e) != 0 || pl0_run(&prog, &e) != 0) {
+        char msg[ERR_MESSAGE_SIZE];
         fflush(stdout);
-        fprintf(stderr, "ERROR line %u: %s\n", (unsigned)e.line, err_text(e.code));
+        err_message(msg, e.code, e.line);
+        fprintf(stderr, "%s\n", msg);
         rc = 1;
     }
 #ifdef PL0_TEST_HOOKS

@@ -1,4 +1,5 @@
 #include "core/errors.h"
+#include <string.h>
 #include "core/ascii.h"     /* the texts are ASCII on every target */
 
 /* One table indexed by error code. Keep texts <= 36 chars.
@@ -40,4 +41,19 @@ static const char *const err_msgs[E_COUNT] = {
 const char *err_text(uint8_t code) {
     if (code < E_COUNT) return err_msgs[code];
     return "unknown error";
+}
+
+void err_message(char *buf, uint8_t code, uint16_t line) {
+    char digits[5];
+    uint8_t n = 0;
+    strcpy(buf, "ERROR line ");
+    buf += 11;
+    do {
+        digits[n++] = (char)('0' + line % 10);
+        line /= 10;
+    } while (line);
+    while (n) *buf++ = digits[--n];
+    *buf++ = ':';
+    *buf++ = ' ';
+    strcpy(buf, err_text(code));
 }

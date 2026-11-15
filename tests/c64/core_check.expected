@@ -1,0 +1,16 @@
+core_check (c64)
+a 7
+b 3628800
+c ERROR line 1: undeclared name
+d ERROR line 4: division by zero
+e1 0.841470985
+e2 1.41421356
+e3 3.14159265
+f1 820
+f2
+ERROR line 2: stack overflow (too deep)
+f3 820
+g: stop me
+g ERROR line 1: stopped
+h drawn
+DONE

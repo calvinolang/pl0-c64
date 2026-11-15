@@ -10,7 +10,7 @@ TEST_SRC := $(wildcard tests/test_*.c)
 TEST_BIN := $(patsubst tests/%.c,$(BUILD)/%,$(TEST_SRC))
 HDRS     := $(wildcard src/*/*.h tests/*.h)
 
-.PHONY: test host examples c64 c64-tests c64-num c64-gfx c64-io clean
+.PHONY: test host examples c64 c64-tests c64-num c64-gfx c64-io c64-core c64-example c64-examples clean
 
 test: $(TEST_BIN) host
 	@python3 tools/check_error_docs.py
@@ -55,6 +55,10 @@ NUM_C64_OBJ := $(C64_BUILD)/num_c64.o $(C64_BUILD)/num_c64_s.o
 C64_NUM_CYCLES ?= 100000000
 C64_GFX_CYCLES ?= 100000000
 C64_IO_CYCLES  ?= 200000000
+C64_CORE_CYCLES ?= 300000000
+# examples: 30 s is about 30 million cycles; the limit lets a slow example
+# finish so that its time can be measured (about 200 s)
+C64_EX_CYCLES  ?= 200000000
 
 # Text is ASCII on the C64 too (src/core/ascii.h): every C source is
 # compiled with cc65's identity charmap. cc65 has no forced-include option,
@@ -65,9 +69,9 @@ C64_IO_CYCLES  ?= 200000000
 # includes still resolve next to it). Assembly sources include
 # src/c64/ascii.inc instead. cc65 stdio (printf) parses its format letters
 # in PETSCII, so C64 programs print through io_put_str, never printf.
-# $(call c64_cc,source,object name)
+# $(call c64_cc,source,object name[,extra wrapper lines before the source])
 c64_cc = mkdir -p $(C64_BUILD) && \
-	printf '\043include <ascii_charmap.h>\n\043include "%s"\n' $(1) > $(C64_BUILD)/$(2).ascii.c && \
+	printf '\043include <ascii_charmap.h>\n$(3)\043include "%s"\n' $(1) > $(C64_BUILD)/$(2).ascii.c && \
 	$(CC65) $(C64_CCFLAGS) -I. -o $(C64_BUILD)/$(2).c.s $(C64_BUILD)/$(2).ascii.c && \
 	$(CA65) -t c64 -o $(C64_BUILD)/$(2).o $(C64_BUILD)/$(2).c.s
 
@@ -134,6 +138,57 @@ c64-io: $(C64_BUILD)/io_check.prg
 	  --on feed8 'keybuf \x03' \
 	  --on feed9 'bank io' --on feed9 '> dc03 80' --on feed9 '> dc01 7f' --on feed9 'bank ram' \
 	  $(C64_BUILD)/io_check.prg PASS $(C64_IO_CYCLES) FAIL
+
+# ---- the real core on the C64 (Task 12b): src/core + the C64 platform
+# layers, linked as the final program will be. core_check.c embeds a PL/0
+# source from a header written by tools/pl0_to_c.py (ASCII bytes verbatim).
+CORE_C64_OBJ := $(addprefix $(C64_BUILD)/,lexer.o compiler.o vm.o turtle.o errors.o clip.o)
+PLAT_C64_OBJ := $(NUM_C64_OBJ) $(C64_BUILD)/gfx_c64.o $(C64_BUILD)/gfx_c64_s.o $(IO_C64_OBJ)
+CORE_CHECK_LIBS := $(CORE_C64_OBJ) $(PLAT_C64_OBJ) $(C64_BUILD)/out.o
+
+$(C64_BUILD)/core_square.h: examples/square.pl0 tools/pl0_to_c.py
+	@mkdir -p $(C64_BUILD)
+	python3 tools/pl0_to_c.py $< $@ --drawing
+
+$(C64_BUILD)/core_check.o: tests/c64/core_check.c $(C64_BUILD)/core_square.h tests/c64/*.h $(HDRS)
+	$(call c64_cc,$<,core_check,\043include "$(C64_BUILD)/core_square.h"\n)
+
+$(C64_BUILD)/core_check.prg: $(C64_BUILD)/core_check.o $(CORE_CHECK_LIBS) $(C64_CFG)
+	$(call c64_link,core_check,$(C64_BUILD)/core_check.o $(CORE_CHECK_LIBS))
+
+# one example: build/c64/ex_NAME.prg (core_check.c in example mode)
+$(C64_BUILD)/ex_%.h: examples/%.pl0 tools/pl0_to_c.py
+	@mkdir -p $(C64_BUILD)
+	python3 tools/pl0_to_c.py $< $@ $(if $(wildcard examples/$*.lines),--drawing)
+
+$(C64_BUILD)/ex_%.o: tests/c64/core_check.c $(C64_BUILD)/ex_%.h tests/c64/*.h $(HDRS)
+	$(call c64_cc,$<,ex_$*,\043define CORE_EXAMPLE 1\n\043include "$(C64_BUILD)/ex_$*.h"\n)
+
+$(C64_BUILD)/ex_%.prg: $(C64_BUILD)/ex_%.o $(CORE_CHECK_LIBS) $(C64_CFG)
+	$(call c64_link,ex_$*,$(C64_BUILD)/ex_$*.o $(CORE_CHECK_LIBS))
+
+# (a)..(h) in tests/c64/core_check.c; the harness types RUN/STOP for (g)
+# and checks the screen and the square's bitmap (snapshot at step 1)
+c64-core: $(C64_BUILD)/core_check.prg host
+	$(BUILD)/pl0host --pbm $(C64_BUILD)/core_square.pbm examples/square.pl0 >/dev/null
+	sh tests/vice_run.sh --snap --on 'g: stop me' 'keybuf \x03' \
+	  --check "python3 tools/check_c64_run.py --screen tests/c64/core_check.expected --pbm $(C64_BUILD)/core_square.pbm" \
+	  $(C64_BUILD)/core_check.prg DONE $(C64_CORE_CYCLES) FAIL
+
+# make c64-example EX=koch [TSV=file]: one example against its golden
+# (.expected text, or the host rendering of a drawing)
+EX_DRAWING = $(wildcard examples/$(EX).lines)
+c64-example: host
+	@test -n "$(EX)" -a -f "examples/$(EX).pl0" || { echo "usage: make c64-example EX=<name of examples/*.pl0>"; exit 2; }
+	$(MAKE) --no-print-directory $(C64_BUILD)/ex_$(EX).prg
+	$(if $(EX_DRAWING),$(BUILD)/pl0host --pbm $(C64_BUILD)/ex_$(EX).pbm examples/$(EX).pl0 >/dev/null)
+	sh tests/vice_run.sh $(if $(EX_DRAWING),--snap) \
+	  --check "python3 tools/check_c64_run.py --name $(EX) $(if $(EX_DRAWING),--pbm $(C64_BUILD)/ex_$(EX).pbm,--text examples/$(EX).expected)$(if $(TSV), --tsv $(TSV))" \
+	  $(C64_BUILD)/ex_$(EX).prg DONE $(C64_EX_CYCLES) "ERROR line"
+
+# all examples, one after the other, and a table of the C64 run times
+c64-examples: host
+	sh tests/c64_examples.sh
 
 clean:
 	$(RM) -r $(BUILD)
