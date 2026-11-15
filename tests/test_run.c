@@ -193,6 +193,78 @@ static void div_zero_runtime_line(void) {
 }
 static void vars_start_at_zero(void) { CHECK_EQ_STR(run("var a; !a."), "0"); }
 
+static void if_true(void) { CHECK_EQ_STR(run("if 1=1 then !5."), "5"); }
+static void if_false(void) {
+    CHECK_EQ_STR(run("if 1=2 then !5."), "");
+    CHECK_EQ_STR(run("begin if 1=2 then !5; !6 end."), "6");
+}
+static void while_sum(void) {
+    CHECK_EQ_STR(run("var i, s; begin i:=1; s:=0; while i<=10 do begin s:=s+i; i:=i+1 end; !s end."), "55");
+}
+static void odd_cond(void) {
+    CHECK_EQ_STR(run("if odd 3 then !1."), "1");
+    CHECK_EQ_STR(run("if odd 4 then !1."), "");
+    CHECK_EQ_STR(run("if odd 2.5 then !1."), "");
+    CHECK_EQ_STR(run("if odd 1+2 then !1."), "1");
+}
+static void all_relops(void) {
+    CHECK_EQ_STR(run("begin if 1=2 then !1; if 1#2 then !2; if 1<>2 then !3; if 1<2 then !4;"
+                     " if 1<=2 then !5; if 1>2 then !6; if 1>=2 then !7 end."), "2345");
+    CHECK_EQ_STR(run("begin if 2=2 then !1; if 2#2 then !2; if 2<>2 then !3; if 2<2 then !4;"
+                     " if 2<=2 then !5; if 2>2 then !6; if 2>=2 then !7 end."), "157");
+    CHECK_EQ_STR(run("begin if 2=1 then !1; if 2>1 then !2; if 2>=1 then !3; if 2<1 then !4;"
+                     " if 2<=1 then !5 end."), "23");
+}
+static void nested_while(void) {
+    CHECK_EQ_STR(run("var i, j, n; begin n:=0; i:=0; while i<3 do begin j:=0;"
+                     " while j<4 do begin n:=n+1; j:=j+1 end; i:=i+1 end; !n end."), "12");
+}
+static void while_missing_do(void) {
+    CHECK_EQ_STR(run("while 1=2 !1."), "ERROR line 1: \"do\" expected");
+}
+static void if_missing_then(void) {
+    CHECK_EQ_STR(run("if 1=1 !1."), "ERROR line 1: \"then\" expected");
+}
+static void missing_relop(void) {
+    CHECK_EQ_STR(run("if 1 then !1."), "ERROR line 1: expression expected");
+}
+static void float_compare(void) {
+    CHECK_EQ_STR(run("if 0.5 < 0.75 then !1."), "1");
+    CHECK_EQ_STR(run("if 0.75 < 0.5 then !1."), "");
+}
+static void sequential_ifs_while(void) {
+    int i;
+    char *p = big;
+    p += sprintf(p, "begin ");
+    for (i = 0; i < 40; i++) p += sprintf(p, "if 1=1 then !1; while 1=2 do !2; ");
+    strcpy(p, "! 3 end.");
+    CHECK_EQ_STR(run(big), "1111111111111111111111111111111111111111" "3");
+}
+static const char *nested(const char *kw, int n) {
+    char *p = big;
+    int i;
+    for (i = 0; i < n; i++) p += sprintf(p, "%s 1=0 %s ", kw, kw[0] == 'w' ? "do" : "then");
+    strcpy(p, "!1.");
+    return big;
+}
+static void if_while_nesting_limit(void) {
+    CHECK_EQ_STR(run(nested("while", MAX_STMT_NEST)), "");
+    CHECK_EQ_STR(run(nested("while", MAX_STMT_NEST + 1)), "ERROR line 1: nested too deeply");
+    CHECK_EQ_STR(run(nested("if", MAX_STMT_NEST)), "");
+    CHECK_EQ_STR(run(nested("if", MAX_STMT_NEST + 1)), "ERROR line 1: nested too deeply");
+}
+static void while_stopped(void) {
+    io_host_break_after(5);
+    CHECK_EQ_STR(run("var x;\nbegin\n  x := 0;\n  while 1=1 do x := x + 1\nend."), "ERROR line 4: stopped");
+    io_host_break_after(3);
+    CHECK_EQ_STR(run("while 1=1 do."), "ERROR line 1: stopped");
+    io_host_break_after(0);
+}
+static void runtime_error_in_loop(void) {
+    CHECK_EQ_STR(run("var i;\nbegin\n  i := 2;\n  while i >= 0 do\n  begin\n    !10/i;\n    i := i - 1\n  end\nend."),
+                 "ERROR line 6: division by zero");
+}
+
 int main(void) {
     output_literal();
     precedence_and_parens();
@@ -223,5 +295,19 @@ int main(void) {
     syntax_errors();
     div_zero_runtime_line();
     vars_start_at_zero();
+    if_true();
+    if_false();
+    while_sum();
+    odd_cond();
+    all_relops();
+    nested_while();
+    while_missing_do();
+    if_missing_then();
+    missing_relop();
+    float_compare();
+    sequential_ifs_while();
+    if_while_nesting_limit();
+    while_stopped();
+    runtime_error_in_loop();
     TEST_MAIN_END();
 }

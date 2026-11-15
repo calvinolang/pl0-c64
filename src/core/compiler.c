@@ -209,9 +209,44 @@ static int starts_statement(Token t)
     }
 }
 
+/* condition = "odd" expression | expression ("=" | "#" | "<>" | "<" | "<=" |
+ *             ">" | ">=") expression
+ * Leaves one temporary (the truth value) for JPC to pop. The comparison OPR
+ * is always the instruction just before the JPC and carries its line (used
+ * by the VM to report E_STOPPED for a loop). */
+static void condition(void)
+{
+    uint8_t op;
+    uint16_t line;
+
+    if (lx.tok == T_ODD) {
+        line = lx.line;
+        next();
+        expression();
+        emit(OP_OPR, OPR_ODD, (int16_t)line);
+        return;
+    }
+    expression();
+    switch (lx.tok) {
+    case T_EQ: op = OPR_EQ; break;
+    case T_NE: op = OPR_NE; break;
+    case T_LT: op = OPR_LT; break;
+    case T_LE: op = OPR_LE; break;
+    case T_GT: op = OPR_GT; break;
+    case T_GE: op = OPR_GE; break;
+    default:   fail(E_EXPECTED_EXPR); return;   /* no relational operator */
+    }
+    line = lx.line;
+    next();
+    expression();
+    emit(OP_OPR, op, (int16_t)line);
+    --depth;
+}
+
 static void statement(void)
 {
     Sym *s;
+    uint16_t at, top;
     switch (lx.tok) {
     case T_IDENT:
         s = find();
@@ -234,6 +269,30 @@ static void statement(void)
             statement();
         }
         expect(T_END, E_EXPECTED_END);
+        --snest;
+        break;
+    case T_IF:
+        if (++snest > MAX_STMT_NEST) fail(E_NESTING);
+        next();
+        condition();
+        expect(T_THEN, E_EXPECTED_THEN);
+        at = emit(OP_JPC, 0, 0);
+        --depth;
+        statement();
+        prog->code[at].arg = (int16_t)prog->ncode;
+        --snest;
+        break;
+    case T_WHILE:
+        if (++snest > MAX_STMT_NEST) fail(E_NESTING);
+        top = prog->ncode;
+        next();
+        condition();
+        expect(T_DO, E_EXPECTED_DO);
+        at = emit(OP_JPC, 0, 0);
+        --depth;
+        statement();
+        emit(OP_JMP, 0, (int16_t)top);       /* backward: VM polls io_break() */
+        prog->code[at].arg = (int16_t)prog->ncode;
         --snest;
         break;
     case T_BANG:

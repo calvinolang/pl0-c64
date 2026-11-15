@@ -30,6 +30,7 @@ int pl0_run(const Program *p, PL0Error *err)
 {
     const Instr *ip = p->code;
     num_t *sp = stack;
+    int c;
 
     err->code = E_NONE;
     err->line = 0;
@@ -76,10 +77,45 @@ int pl0_run(const Program *p, PL0Error *err)
                 --sp;
                 num_mul(sp - 1, sp - 1, sp);
                 break;
+            case OPR_ODD:
+                num_from_int(sp - 1, (int16_t)num_is_odd(sp - 1));
+                break;
+            case OPR_EQ: case OPR_NE: case OPR_LT:
+            case OPR_GE: case OPR_GT: case OPR_LE:
+                --sp;
+                c = num_cmp(sp - 1, sp);
+                switch (ip->lvl) {
+                case OPR_EQ: c = c == 0; break;
+                case OPR_NE: c = c != 0; break;
+                case OPR_LT: c = c < 0; break;
+                case OPR_GE: c = c >= 0; break;
+                case OPR_GT: c = c > 0; break;
+                default:     c = c <= 0; break;
+                }
+                num_from_int(sp - 1, c);
+                break;
             case OPR_DIV:
                 --sp;
                 if (num_div(sp - 1, sp - 1, sp)) return fail(err, E_DIV_ZERO, ip->arg);
                 break;
+            }
+            break;
+        case OP_JMP:
+            /* Only the while loop-back jumps backward. */
+            if (ip->arg <= (int16_t)(ip - p->code) && io_break()) {
+                /* Line of the loop: from the loop condition, whose last
+                 * instruction (just before its JPC) is an OPR with the line. */
+                const Instr *q = p->code + ip->arg;
+                while (q->op != OP_JPC) ++q;
+                return fail(err, E_STOPPED, (q - 1)->arg);
+            }
+            ip = p->code + ip->arg;
+            continue;
+        case OP_JPC:
+            --sp;
+            if (num_is_zero(sp)) {
+                ip = p->code + ip->arg;
+                continue;
             }
             break;
         case OP_WRN:

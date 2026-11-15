@@ -6,5 +6,6 @@ void io_capture_begin(void);         /* start capturing output (clears it) */
 const char *io_capture_get(void);    /* captured output so far */
 void io_capture_end(void);           /* back to stdout */
 void io_host_set_break(int on);      /* value io_break() returns */
+void io_host_break_after(int n);     /* io_break() returns 1 from its nth call on; 0 = never */
 
 #endif
