@@ -113,7 +113,8 @@ frames as they are in the GIF, for review).
     no `srcset` or `<source>`; every image has alt text and a size;
   - the page references the demo GIF, a capture for every INDEX entry,
     the five UI screens, both downloads and `LICENSE.txt`, and has at
-    least one `data-repo-path` link (an empty page fails);
+    least one `data-repo-path` link (an empty page fails), each naming a
+    file that exists in the repository;
   - size caps (constants at the top of the checker): each GIF at most
     2.5 MB, each PNG 300 KB, each HTML/CSS/text file 200 KB, all PNG and
     GIF files together 6 MB, the whole page 8 MiB;
@@ -123,11 +124,12 @@ frames as they are in the GIF, for review).
   (`--source`: `img/` read from `docs/img/c64/`, `LICENSE.txt` from
   `LICENSE`, `dl/` checked by name against the two files `make web`
   copies) and `tools/test_check_site.py`, which builds a good site in a
-  temporary directory and checks that it passes and that 16 broken
+  temporary directory and checks that it passes and that 17 broken
   variants fail (empty page, missing gallery image or download
   reference, a download typo, broken `#fragment`, missing file, external
   stylesheet, leading `/`, oversize GIF and PNG, script, srcset,
-  external or missing `url()`, no repository link).
+  external or missing `url()`, no repository link, a repository link to
+  a document that does not exist).
 - `.github/workflows/pages.yml`: on a push to the default branch, installs
   cc65 and VICE (for `c1541`; no ROMs), runs `actions/configure-pages`,
   `make dist web` with `REPO_URL`/`REPO_BRANCH` from the environment

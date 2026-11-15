@@ -74,6 +74,9 @@ CASES = [
     ("missing url() in a style= attribute", edit("<main id=\"main\">", "<main id=\"main\" style=\"background:url(img/nope.png)\">"),
      "img/nope.png' does not exist"),
     ("no repository link", edit("data-repo-path=", "data-x="), "no repository link"),
+    ("repository link to a missing document",
+     edit('data-repo-path="docs/LANGUAGE.md"', 'data-repo-path="docs/LANGUAGE2.md"'),
+     "is not a file of the repository"),
 ]
 
 

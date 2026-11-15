@@ -23,7 +23,8 @@ For every HTML page in the site (index.html and the pages it links to):
   - the page references everything it must (REQUIRED below): the demo
     GIF, a capture per INDEX entry and the five UI screens, both
     downloads, LICENSE.txt, and at least one repository link
-    (<a data-repo-path>);
+    (<a data-repo-path>), each naming a file that exists in the
+    repository;
   - a WARNING (not a failure) when the repository links still hold the
     placeholder https://github.com/OWNER/REPO (make web without
     REPO_URL); the Pages workflow fails on it.
@@ -83,6 +84,10 @@ class Page(HTMLParser):
             self.css.append((line, a["style"]))
         if tag == "a" and "data-repo-path" in a:
             self.repo_links += 1
+            path = a["data-repo-path"] or ""
+            if not path or path.startswith("/") or ".." in path.split("/") \
+                    or not os.path.isfile(os.path.join(ROOT, path)):
+                self.problems.append(f"{line}: data-repo-path {path!r} is not a file of the repository")
         if tag == "img":
             if not (a.get("alt") or "").strip():
                 self.problems.append(f"{line}: <img src={a.get('src')!r}> without alt text")
