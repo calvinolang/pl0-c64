@@ -1,0 +1,38 @@
+#ifndef TEST_H
+#define TEST_H
+#include <stdio.h>
+#include <math.h>
+
+static int test_failures = 0;
+static int test_checks = 0;
+
+#define CHECK(cond) do { \
+    test_checks++; \
+    if (!(cond)) { \
+        test_failures++; \
+        printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); \
+    } } while (0)
+
+#define CHECK_EQ_INT(a, b) do { \
+    long test_a_ = (long)(a), test_b_ = (long)(b); \
+    test_checks++; \
+    if (test_a_ != test_b_) { \
+        test_failures++; \
+        printf("FAIL %s:%d: %s == %s (got %ld, expected %ld)\n", \
+               __FILE__, __LINE__, #a, #b, test_a_, test_b_); \
+    } } while (0)
+
+#define CHECK_NEAR(a, b, eps) do { \
+    double test_a_ = (double)(a), test_b_ = (double)(b); \
+    test_checks++; \
+    if (fabs(test_a_ - test_b_) > (double)(eps)) { \
+        test_failures++; \
+        printf("FAIL %s:%d: %s ~ %s (got %g, expected %g)\n", \
+               __FILE__, __LINE__, #a, #b, test_a_, test_b_); \
+    } } while (0)
+
+#define TEST_MAIN_END() \
+    printf("%d check(s), %d failure(s)\n", test_checks, test_failures); \
+    return test_failures ? 1 : 0
+
+#endif
