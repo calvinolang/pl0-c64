@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+void num_copy(num_t *dst, const num_t *src) { *dst = *src; }
 void num_from_int(num_t *r, int16_t v) { *r = (double)v; }
 
 int num_parse(const char *s, num_t *r)

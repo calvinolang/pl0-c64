@@ -6,7 +6,8 @@
  * float type on the C64 can be passed without struct-by-value cost.
  * The representation is chosen here: cc65 builds get an opaque 5-byte
  * value (implemented in a C64 num source later); everything else
- * (host builds and tests) uses double. Callers must treat num_t as opaque. */
+ * (host builds and tests) uses double. Callers must treat num_t as opaque.
+ * The result pointer r may alias an operand (the VM computes in place). */
 #ifdef __CC65__
 typedef struct { uint8_t b[5]; } num_t;
 #else
@@ -15,6 +16,7 @@ typedef double num_t;
 
 enum { NUMFN_SIN, NUMFN_COS, NUMFN_ATN, NUMFN_SQR, NUMFN_ABS, NUMFN_INT, NUMFN_EXP, NUMFN_LOG };
 
+void num_copy(num_t *dst, const num_t *src);     /* never struct-assign num_t */
 void num_from_int(num_t *r, int16_t v);
 int  num_parse(const char *s, num_t *r);           /* 0 ok, -1 bad */
 void num_add(num_t *r, const num_t *a, const num_t *b);

@@ -10,6 +10,11 @@ static void fmt_is(const num_t *a, const char *want) {
     if (strcmp(b, want) != 0) { test_failures++; printf("FAIL %s:%d: format got \"%s\" expected \"%s\"\n", __FILE__, __LINE__, b, want); }
 }
 
+static void copy_and_alias(void) {
+    num_t a, b; P(&a, "2.5"); num_copy(&b, &a); fmt_is(&b, "2.5");
+    num_add(&a, &a, &b); fmt_is(&a, "5");          /* r aliases a */
+    num_mul(&b, &a, &b); fmt_is(&b, "12.5");       /* r aliases b */
+}
 static void format_integer(void) { num_t a; P(&a, "3.0"); fmt_is(&a, "3"); }
 static void format_fraction(void) {
     num_t a, b, r; P(&a, "0.1"); P(&b, "0.2"); num_add(&r, &a, &b); fmt_is(&r, "0.3");
@@ -71,7 +76,7 @@ static void to_i16_saturates(void) {
 }
 
 int main(void) {
-    format_integer(); format_fraction(); format_negative(); format_huge(); format_tiny(); format_misc(); format_bounds();
+    copy_and_alias(); format_integer(); format_fraction(); format_negative(); format_huge(); format_tiny(); format_misc(); format_bounds();
     parse_ok(); parse_bad(); div_zero(); odd(); fn_domain(); to_i16_saturates();
     TEST_MAIN_END();
 }

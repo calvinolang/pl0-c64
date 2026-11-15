@@ -2,6 +2,7 @@
 #define TEST_H
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 static int test_failures = 0;
 static int test_checks = 0;
@@ -29,6 +30,15 @@ static int test_checks = 0;
         test_failures++; \
         printf("FAIL %s:%d: %s ~ %s (got %g, expected %g)\n", \
                __FILE__, __LINE__, #a, #b, test_a_, test_b_); \
+    } } while (0)
+
+#define CHECK_EQ_STR(a, b) do { \
+    const char *test_s_ = (a), *test_t_ = (b); \
+    test_checks++; \
+    if (strcmp(test_s_, test_t_) != 0) { \
+        test_failures++; \
+        printf("FAIL %s:%d: %s\n  got      \"%s\"\n  expected \"%s\"\n", \
+               __FILE__, __LINE__, #a, test_s_, test_t_); \
     } } while (0)
 
 #define TEST_MAIN_END() \
