@@ -23,8 +23,10 @@ ERROR line 13: undeclared name           row 24: key bar or message
   column 0 when characters are hidden on the left; any row whose line goes
   on past the window shows `>` in column 39. The cursor stays in columns
   1-38 of a scrolled row, never under a marker.
-- The view scrolls one line at a time to keep the cursor on rows 1-23;
-  after an error the line is shown with up to 7 lines above it.
+- The view scrolls one line at a time to keep the cursor on rows 1-23.
+  After an error the view stays where it was if the error's line is in
+  it; otherwise it moves so that the line shows with up to 7 lines above
+  it.
 - The cursor is a steady reverse-video cell.
 - Colours: the C64 default, light blue on blue.
 - Character set: upper/lower case. `{` and `}` show as `[` and `]` (the C64

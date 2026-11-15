@@ -1,3 +1,60 @@
+# C64 memory map
+
+## The program now (generated)
+
+`build/pl0.prg` as linked (`src/c64/pl0-c64.cfg`, cc65 2.19 from the
+Ubuntu package, `-O`). The tables between the markers are written by
+`make c64-mem-doc` (`tools/c64_mem.py build/c64/pl0.map --write-doc`)
+from the ld65 map, and `make c64-mem` fails when they differ from the
+map, so they cannot drift from the build (a different cc65 version gives
+different sizes: regenerate). Per module, in bytes: Code is CODE (plus the
+startup segments for the runtime row), Rodata + data is RODATA, DATA and
+INIT.
+
+<!-- begin c64_mem.py: generated from build/c64/pl0.map, checked by make c64-mem -->
+| Module | Code | Rodata + data | BSS | HIBSS | LOWBSS | BASICBSS |
+|---|---:|---:|---:|---:|---:|---:|
+| `main.o` | 1,004 | 535 | 4,753 |  | 78 | 8,192 |
+| `editor.o` | 3,596 | 837 |  | 181 |  |  |
+| `edscreen_s.o` | 792 |  |  | 279 |  |  |
+| `textbuf.o` | 1,120 |  |  |  |  |  |
+| `disk.o` | 612 | 111 |  |  | 55 |  |
+| `disk_s.o` | 588 |  |  |  | 14 |  |
+| `picker.o` | 570 | 69 |  |  | 8 |  |
+| `picker_s.o` | 552 | 18 |  | 51 | 19 |  |
+| `lexer.o` | 2,731 | 206 |  |  |  |  |
+| `compiler.o` | 4,299 |  | 1,454 |  |  |  |
+| `vm.o` | 2,426 |  | 26 | 2,560 |  |  |
+| `turtle.o` | 2,186 | 46 | 118 |  |  |  |
+| `errors.o` | 281 | 593 |  |  |  |  |
+| `clip.o` | 890 |  |  |  |  |  |
+| `num_c64.o` | 735 |  | 6 |  |  |  |
+| `num_c64_s.o` | 1,661 | 9 | 80 |  |  |  |
+| `gfx_c64.o` | 191 |  | 7 |  |  |  |
+| `gfx_c64_s.o` | 472 | 8 | 11 |  |  |  |
+| `io_c64.o` | 384 | 3 | 25 |  |  |  |
+| `io_c64_s.o` | 390 | 10 | 5 |  |  |  |
+| cc65 runtime + libc (95 modules) | 2,306 | 69 | 1 |  |  |  |
+| **total** | 27,786 | 2,514 | 6,486 | 3,071 | 174 | 8,192 |
+
+| Area | Range | Bytes | Notes |
+|---|---|---:|---|
+| BASIC stub + startup | `$0801-$083F` | 63 |  |
+| CODE | `$0840-$7464` | 27,685 |  |
+| RODATA + DATA + INIT | `$7465-$7E36` | 2,514 |  |
+| BSS | `$7E37-$978C` | 6,486 | ONCE (run-once startup code) lies under its start |
+| **free below the C stack** | `$978D-$97FF` | 115 | BSS may grow up to $97FF |
+| C stack | `$9800-$9FFF` | 2,048 | cc65 parameter stack |
+| BASICBSS | `$A000-$BFFF` | 8,192 | the source buffer, under the BASIC ROM |
+| HIBSS | `$C000-$CBFE` | 3,071 | 3,071 of 3,072 used, 1 free |
+| LOWBSS | `$033C-$03E9` | 174 | 174 of 192 used, 18 free (the cassette buffer) |
+
+Image `$0801-$7E5C` (to the end of ONCE): 30,302 bytes in `pl0.prg` with the 2-byte load address.
+<!-- end c64_mem.py -->
+
+The sections below are the history: how the map got here, measured at
+each task.
+
 # C64 memory map of the core (Task 12b)
 
 Measured from the ld65 map of `build/c64/core_check.prg` (`make c64-core`):
@@ -143,7 +200,7 @@ RAM first. The options, measured or sized here:
 | Area | Range | Bytes |
 |---|---|---:|
 | CODE | `$0840-$7464` | 27,685 |
-| RODATA + DATA + INIT | `$7400-$7DC5` | |
+| RODATA + DATA + INIT | `$7465-$7E36` | 2,514 |
 | BSS | `$7E37-$978C` | 6,486 |
 | **free below the C stack** | **`$978D-$97FF`** | **115** |
 | HIBSS | `$C000-$CBFE` | 3,071 of 3,072 (1 free) |
