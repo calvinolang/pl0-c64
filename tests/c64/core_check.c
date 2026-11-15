@@ -15,9 +15,15 @@
  * below; each prints on one labelled screen line, and
  * tools/check_c64_run.py --screen tests/c64/core_check.expected compares
  * the whole screen line by line. (g) loops until the harness types
- * RUN/STOP after the line `g: stop me`. (h) draws the square; the harness
- * saves RAM at --snap step 1 while the bitmap is shown and compares it
- * with the host renderer (pixel count, bounding box).
+ * RUN/STOP after the line `g: stop me`. (i) is the compiler's worst
+ * case: 4 nested procedures, 16 nested statements (begin, if, while)
+ * and 16 parentheses around a number literal, every limit at its
+ * maximum (one more of any fails with `nested too deeply`); the stacks
+ * are measured around it (stack_fill/stack_scan below) and must keep a
+ * margin. (j1)..(j4) are domain and overflow errors raised by the VM.
+ * (h) draws the square; the harness saves RAM at --snap step 1 while the
+ * bitmap is shown and compares it with the host renderer (pixel count,
+ * bounding box).
  *
  * `make c64-example EX=name` (CORE_EXAMPLE defined, core_src = the
  * example): clears the screen, runs the example (its text output stays on
@@ -118,6 +124,44 @@ static int run(const char *text)
 
 #ifndef CORE_EXAMPLE
 
+/* Stack margins of case (i). stack_fill writes $AA to the unused part of
+ * the 6502 stack ($0100 up to 32 bytes below the stack pointer S: the
+ * margin covers memset's own return address and an interrupt) and of the
+ * C stack ($9800, its lowest address, up to 64 bytes below cc65's sp);
+ * stack_scan finds the lowest byte that is no longer $AA in each. A
+ * stored $AA at the deepest point would hide a byte or two. The results
+ * stay in these globals: `make c64-core` prints them from the RAM
+ * snapshot of step 1 (taken later, at the drawing of case h) through the
+ * labels in build/c64/core_check.lbl. Gate: at least STK_HW_MIN bytes of
+ * the 256-byte 6502 stack stay free, at most STK_C_MAX of the 2 KB C
+ * stack are used, otherwise a FAIL line. */
+#define STK_HW_MIN 32
+#define STK_C_MAX  1024
+uint8_t stk_s;
+uint16_t stk_sp, stk_hw_free, stk_c_used;
+
+static void stack_fill(void)
+{
+    __asm__("tsx");
+    __asm__("stx %v", stk_s);
+    __asm__("lda sp");
+    __asm__("sta %v", stk_sp);
+    __asm__("lda sp+1");
+    __asm__("sta %v+1", stk_sp);
+    memset((void *)0x0100, 0xAA, stk_s - 32);
+    memset((void *)0x9800, 0xAA, stk_sp - 0x9800 - 64);
+}
+
+static void stack_scan(void)
+{
+    uint8_t *p = (uint8_t *)0x0100;
+    while (*p == 0xAA) ++p;
+    stk_hw_free = (uint16_t)p - 0x0100;
+    p = (uint8_t *)0x9800;
+    while (*p == 0xAA) ++p;
+    stk_c_used = 0xA000 - (uint16_t)p;
+}
+
 /* label, the program's output, a new line (an error ends its own line) */
 static void line(const char *label, const char *text)
 {
@@ -154,6 +198,37 @@ int main(void)
     line("f3", "!40*41/2.");             /* still works after the overflow */
     out_line("g: stop me");              /* the harness types RUN/STOP */
     line("g", "var i; begin i := 0; while 1 = 1 do i := i + 1 end.");
+    stack_fill();
+    line("i", "var r;\n"
+              "procedure p1;\n"
+              "procedure p2;\n"
+              "procedure p3;\n"
+              "procedure p4;\n"
+              "begin while r < 1 do if r < 1 then begin while r < 1 do "
+              "if r < 1 then begin while r < 1 do if r < 1 then begin "
+              "while r < 1 do if r < 1 then begin while r < 1 do "
+              "if r < 1 then begin "
+              "r := r + ((((((((((((((((2.5)))))))))))))))) "
+              "end end end end end end;\n"
+              "begin call p4 end;\n"
+              "begin call p3 end;\n"
+              "begin call p2 end;\n"
+              "begin r := 0; call p1; !r end.");
+    stack_scan();
+    if (stk_hw_free >= STK_HW_MIN && stk_c_used <= STK_C_MAX) {
+        out_line("i stack ok");
+    } else {
+        out_str("FAIL stack: 6502 free ");
+        out_ul(stk_hw_free);
+        out_str(", C used ");
+        out_ul(stk_c_used);
+        out_nl();
+    }
+    line("j1", "var x;\nbegin x := 0;\n  !log(x)\nend.");
+    line("j2", "!sqrt(-2).");
+    line("j3", "!exp(1000).");
+    line("j4", "var x;\nbegin x := 1000;\n"
+               "  while 1 = 1 do x := x * x\nend.");
     out_str("h ");
     if (!run((const char *)core_src)) out_line("drawn");
     out_str("DONE");

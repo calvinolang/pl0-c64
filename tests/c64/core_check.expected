@@ -12,5 +12,11 @@ ERROR line 2: stack overflow (too deep)
 f3 820
 g: stop me
 g ERROR line 1: stopped
+i 2.5
+i stack ok
+j1 ERROR line 3: domain error
+j2 ERROR line 1: domain error
+j3 ERROR line 1: number overflow
+j4 ERROR line 3: number overflow
 h drawn
 DONE

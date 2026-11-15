@@ -1,0 +1,45 @@
+{ make c64-core: language features no example uses, as text:
+  exp, log, abs, every comparison (# and <> both), odd, and a
+  procedure at level 2 that reaches the variables of levels 1 and 0.
+  The expected output is the host's (build/pl0host). }
+var g, i;
+
+procedure outer(a);
+  var v;
+  procedure inner(b);
+  begin
+    g := g + a * b + v;
+    v := v + 1
+  end;
+begin
+  v := 10;
+  call inner(2);
+  call inner(3);
+  !'outer '; !a; !' v '; !v; !' g '; !g; !
+end;
+
+begin
+  !'exp '; !exp(1); !' '; !exp(-2.5); !' '; !exp(10); !;
+  !'log '; !log(10); !' '; !log(0.5); !' '; !log(1000000); !;
+  !'exp log '; !log(exp(3)); !' '; !exp(log(7)); !;
+  !'abs '; !abs(-3.25); !' '; !abs(7); !' '; !abs(-0.001); !;
+  i := -1;
+  while i <= 1 do
+  begin
+    !'i '; !i; !':';
+    if i >= 0 then !' >=';
+    if i > 0 then !' >';
+    if i <= 0 then !' <=';
+    if i < 0 then !' <';
+    if i = 0 then !' =';
+    if i # 0 then !' #';
+    if i <> 0 then !' <>';
+    if odd i then !' odd';
+    !;
+    i := i + 1
+  end;
+  g := 0;
+  call outer(4);
+  call outer(-1);
+  !'done'
+end.

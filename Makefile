@@ -175,13 +175,40 @@ $(C64_BUILD)/ex_%.o: tests/c64/core_check.c $(C64_BUILD)/ex_%.h tests/c64/*.h $(
 $(C64_BUILD)/ex_%.prg: $(C64_BUILD)/ex_%.o $(CORE_CHECK_LIBS) $(C64_CFG)
 	$(call c64_link,ex_$*,$(C64_BUILD)/ex_$*.o $(CORE_CHECK_LIBS))
 
-# (a)..(h) in tests/c64/core_check.c; the harness types RUN/STOP for (g)
-# and checks the screen and the square's bitmap (snapshot at step 1)
-c64-core: $(C64_BUILD)/core_check.prg host
+# the sweeps tests/c64/sweep_text.pl0 and sweep_draw.pl0: core_check.c in
+# example mode, like ex_% (build/c64/sw_NAME.prg)
+$(C64_BUILD)/sw_%.h: tests/c64/%.pl0 tools/pl0_to_c.py
+	@mkdir -p $(C64_BUILD)
+	python3 tools/pl0_to_c.py $< $@
+
+$(C64_BUILD)/sw_%.o: tests/c64/core_check.c $(C64_BUILD)/sw_%.h tests/c64/*.h $(HDRS)
+	$(call c64_cc,$<,sw_$*,\043define CORE_EXAMPLE 1\n\043include "$(C64_BUILD)/sw_$*.h"\n)
+
+$(C64_BUILD)/sw_%.prg: $(C64_BUILD)/sw_%.o $(CORE_CHECK_LIBS) $(C64_CFG)
+	$(call c64_link,sw_$*,$(C64_BUILD)/sw_$*.o $(CORE_CHECK_LIBS))
+
+# (a)..(j4) in tests/c64/core_check.c; the harness types RUN/STOP for (g)
+# and checks the screen and the square's bitmap (snapshot at step 1); then
+# the stack margins of case (i) from that snapshot, then the two sweeps
+# against the host: the text output (tools/compare_output.py) and the
+# drawing (pl0host --pbm). About 15 s.
+c64-core: $(C64_BUILD)/core_check.prg $(C64_BUILD)/sw_sweep_text.prg $(C64_BUILD)/sw_sweep_draw.prg host
 	$(BUILD)/pl0host --pbm $(C64_BUILD)/core_square.pbm examples/square.pl0 >/dev/null
 	sh tests/vice_run.sh --snap --on 'g: stop me' 'keybuf \x03' \
 	  --check "python3 tools/check_c64_run.py --screen tests/c64/core_check.expected --pbm $(C64_BUILD)/core_square.pbm" \
 	  $(C64_BUILD)/core_check.prg DONE $(C64_CORE_CYCLES) FAIL
+	@python3 -c 'import sys; L = dict((w[2][1:], int(w[1], 16)) for w in (l.split() for l in open(sys.argv[1])) if len(w) == 3); \
+	  m = open(sys.argv[2], "rb").read(); v = lambda n: m[L[n]] | m[L[n] + 1] << 8; \
+	  print("c64-core: case i (the nesting limits): %d of 256 bytes of the 6502 stack free, %d of 2048 bytes of the C stack used" \
+	        % (v("_stk_hw_free"), v("_stk_c_used")))' $(C64_BUILD)/core_check.lbl $(BUILD)/vice/core_check/snap1.bin
+	$(BUILD)/pl0host tests/c64/sweep_text.pl0 > $(C64_BUILD)/sweep_text.expected
+	sh tests/vice_run.sh \
+	  --check "python3 tools/check_c64_run.py --name sweep_text --text $(C64_BUILD)/sweep_text.expected" \
+	  $(C64_BUILD)/sw_sweep_text.prg DONE $(C64_EX_CYCLES) "ERROR line"
+	$(BUILD)/pl0host --pbm $(C64_BUILD)/sweep_draw.pbm tests/c64/sweep_draw.pl0 >/dev/null
+	sh tests/vice_run.sh --snap \
+	  --check "python3 tools/check_c64_run.py --name sweep_draw --pbm $(C64_BUILD)/sweep_draw.pbm" \
+	  $(C64_BUILD)/sw_sweep_draw.prg DONE $(C64_EX_CYCLES) "ERROR line"
 
 # make c64-example EX=koch [TSV=file]: one example against its golden
 # (.expected text, or the host rendering of a drawing)

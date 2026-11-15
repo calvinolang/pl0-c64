@@ -1,0 +1,37 @@
+{ make c64-core: turtle paths no example uses: home, very long lines
+  cut at every edge (the far clip: forward(50000), moveto far outside),
+  lines that start and end off screen, pen up and down. The C64 bitmap
+  is compared with the host's rendering (build/pl0host --pbm). }
+var i;
+begin
+  { a cross through the middle: each line leaves the screen }
+  forward(50000); home;
+  turn(90); forward(50000); home;
+  turn(180); forward(50000); home;
+  turn(-90); forward(50000); home;
+  { far points in all four directions, from a box corner }
+  penup; moveto(-60, -40); pendown;
+  moveto(1000000, -40);
+  penup; moveto(60, 40); pendown;
+  moveto(-1000000, 40);
+  penup; moveto(-60, 40); pendown;
+  moveto(-60, 1000000);
+  penup; moveto(60, -40); pendown;
+  moveto(60, -1000000);
+  { from far off screen to far off screen across it: y = 30 + 0.75 x }
+  penup; moveto(-2000000, -1499970); pendown;
+  moveto(2000000, 1500030);
+  { home keeps the pen: up here, so nothing is drawn }
+  penup; home; pendown;
+  { a slanted fan from the middle, cut at the edges }
+  i := 0;
+  while i < 6 do
+  begin
+    home; turn(15 + i * 60); forward(40000);
+    i := i + 1
+  end;
+  { penup moves draw nothing; home never draws, not even with the
+    pen down }
+  penup; home; forward(30); turn(90); forward(500); pendown;
+  home
+end.
