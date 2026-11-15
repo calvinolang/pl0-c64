@@ -47,6 +47,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "ERROR line %u: %s\n", (unsigned)e.line, err_text(e.code));
         rc = 1;
     }
+    if (gfx_host_overflow() > 0)
+        fprintf(stderr, "warning: %d line(s) not recorded (recorder full)\n", gfx_host_overflow());
     /* what was drawn before an error is still written */
     if (linesfile && gfx_host_write_lines(linesfile) != 0) {
         perror(linesfile);

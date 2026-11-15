@@ -2,6 +2,7 @@
 #include "core/compiler.h"
 #include "core/vm.h"
 #include "core/turtle.h"
+#include "core/clip.h"
 #include "core/errors.h"
 #include "platform/gfx.h"
 #include "host/gfx_host.h"
@@ -148,6 +149,92 @@ static void gfx_line_direct(void) {
     CHECK_EQ_INT(nlines(), 4);
     all_in_range();
 }
+/* Exact clipper checks. ex* ignored when vis == 0. */
+static void clipt(int line, int x0, int y0, int x1, int y1, int vis, int ex0, int ey0, int ex1, int ey1) {
+    int16_t a = (int16_t)x0, b = (int16_t)y0, c = (int16_t)x1, d = (int16_t)y1;
+    int r = clip_line(&a, &b, &c, &d);
+    test_checks++;
+    if (r != vis || (vis && (a != ex0 || b != ey0 || c != ex1 || d != ey1))) {
+        test_failures++;
+        printf("FAIL %s:%d: clip(%d,%d,%d,%d) -> %d (%d,%d,%d,%d), expected %d (%d,%d,%d,%d)\n",
+               __FILE__, line, x0, y0, x1, y1, r, a, b, c, d, vis, ex0, ey0, ex1, ey1);
+    }
+}
+#define CLIP(a,b,c,d, vis, e0,e1,e2,e3) clipt(__LINE__, a,b,c,d, vis, e0,e1,e2,e3)
+static void clip_exact(void) {
+    int16_t a, b, c, d;
+    /* corners themselves, as points and as lines */
+    CLIP(0,0,0,0, 1, 0,0,0,0);
+    CLIP(319,199,319,199, 1, 319,199,319,199);
+    CLIP(319,0,319,0, 1, 319,0,319,0);
+    CLIP(0,199,0,199, 1, 0,199,0,199);
+    CLIP(0,0,319,199, 1, 0,0,319,199);
+    CLIP(319,0,0,199, 1, 319,0,0,199);
+    /* touching a corner only: (-5,5)-(5,-5) passes through (0,0); at x=0, y=5+(-10)*5/10=0; at y=0, x=-5+10*5/10=0 */
+    CLIP(-5,5,5,-5, 1, 0,0,0,0);
+    CLIP(314,204,324,194, 1, 319,199,319,199);
+    CLIP(324,5,314,-5, 1, 319,0,319,0);
+    CLIP(-5,194,5,204, 1, 0,199,0,199);
+    /* just missing the corner: (-5,3)-(3,-5) crosses x=0 at y=-2 (above the screen) */
+    CLIP(-5,3,3,-5, 0, 0,0,0,0);
+    CLIP(324,196,316,204, 0, 0,0,0,0);
+    /* zero-length lines */
+    CLIP(0,50,0,50, 1, 0,50,0,50);
+    CLIP(319,50,319,50, 1, 319,50,319,50);
+    CLIP(160,0,160,0, 1, 160,0,160,0);
+    CLIP(160,99,160,99, 1, 160,99,160,99);
+    CLIP(-1,50,-1,50, 0, 0,0,0,0);
+    CLIP(320,50,320,50, 0, 0,0,0,0);
+    CLIP(10,200,10,200, 0, 0,0,0,0);
+    /* horizontal and vertical lines along the edges */
+    CLIP(0,0,319,0, 1, 0,0,319,0);
+    CLIP(0,199,319,199, 1, 0,199,319,199);
+    CLIP(0,0,0,199, 1, 0,0,0,199);
+    CLIP(319,0,319,199, 1, 319,0,319,199);
+    /* spanning the full int16 range along the edges (dx = 65535) */
+    CLIP(-32768,0,32767,0, 1, 0,0,319,0);
+    CLIP(-32768,199,32767,199, 1, 0,199,319,199);
+    CLIP(0,-32768,0,32767, 1, 0,0,0,199);
+    CLIP(319,-32768,319,32767, 1, 319,0,319,199);
+    CLIP(32767,0,-32768,0, 1, 319,0,0,0);
+    CLIP(160,32767,160,-32768, 1, 160,199,160,0);
+    /* entirely off one side, at both int16 extremes */
+    CLIP(-32768,-32768,-32768,32767, 0, 0,0,0,0);
+    CLIP(32767,-32768,32767,32767, 0, 0,0,0,0);
+    CLIP(-32768,-32768,32767,-32768, 0, 0,0,0,0);
+    CLIP(-32768,32767,32767,32767, 0, 0,0,0,0);
+    CLIP(-32768,-1,32767,-1, 0, 0,0,0,0);
+    CLIP(-32768,200,32767,200, 0, 0,0,0,0);
+    CLIP(-1,-32768,-1,32767, 0, 0,0,0,0);
+    CLIP(320,-32768,320,32767, 0, 0,0,0,0);
+    /* diagonal y=x from far outside both ends: enters at (0,0) (top: y=0, x=-1000+2000*1000/2000=0),
+       leaves at the bottom y=199 (x=-1000+2000*1199/2000=199) */
+    CLIP(-1000,-1000,1000,1000, 1, 0,0,199,199);
+    /* extreme corners: y=x with dx=dy=65535 gives the same line */
+    CLIP(-32768,-32768,32767,32767, 1, 0,0,199,199);
+    /* y=x/2 from (-1000,-500) to (1000,500): at x=0 y=-500+1000*1000/2000=0;
+       at x=319 y=-500+1000*1319/2000=159.5, rounded to nearest (half up) = 160 */
+    CLIP(-1000,-500,1000,500, 1, 0,0,319,160);
+    /* opposite direction: same line, rounding at the other end may differ by one */
+    a = 1000; b = 500; c = -1000; d = -500;
+    CHECK_EQ_INT(clip_line(&a, &b, &c, &d), 1);
+    CHECK_EQ_INT(a, 319); CHECK(b == 159 || b == 160); CHECK_EQ_INT(c, 0); CHECK_EQ_INT(d, 0);
+    /* inside to far outside */
+    CLIP(160,99,160,-32768, 1, 160,99,160,0);
+    CLIP(160,99,160,32767, 1, 160,99,160,199);
+    CLIP(160,99,-32768,99, 1, 160,99,0,99);
+    CLIP(160,99,32767,99, 1, 160,99,319,99);
+    /* inside to (32767,32767): hits y=199 first, x=160+32607*100/32668=259.8 -> 260 */
+    CLIP(160,99,32767,32767, 1, 160,99,260,199);
+    /* the same through gfx_line records only the clipped line */
+    gfx_host_reset();
+    gfx_line(-1000, -1000, 1000, 1000);
+    CHECK_EQ_INT(nlines(), 1);
+    line_is(0, 0, 0, 199, 199);
+    gfx_line(-32768, -32768, -32768, 32767);
+    gfx_line(32767, -32768, 32767, 32767);
+    CHECK_EQ_INT(nlines(), 1);
+}
 static void huge_turn(void) {
     CHECK_EQ_STR(run("begin turn(10000000); forward(10) end."), "");
     CHECK_EQ_INT(nlines(), 1);
@@ -275,7 +362,7 @@ int main(void) {
     forward_up(); no_turtle_not_used(); turn_right(); turn_negative(); penup_no_line();
     home_resets_position_and_heading(); moveto_draws_when_pen_down(); square();
     polygon_closes(); offscreen_clipped(); offscreen_diagonal_exact();
-    both_ends_offscreen(); gfx_line_direct(); huge_turn(); pbm_written();
+    both_ends_offscreen(); gfx_line_direct(); clip_exact(); huge_turn(); pbm_written();
     lines_dump(); syntax_errors(); runtime_overflow(); args_use_variables();
     trig_cache(); nesting_counters(); stack_depth_ok();
     TEST_MAIN_END();

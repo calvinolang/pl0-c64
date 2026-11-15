@@ -38,16 +38,29 @@ static void set_heading0(void)
     num_from_int(&tc, 1);
 }
 
-void turtle_reset(void)
+/* Constants are parsed once per program start (each parse is a ROM call on
+ * the C64). kbig = 1e6 squared twice = 1e24, built without an exponent
+ * literal (num_parse may not accept one). */
+static uint8_t inited;
+
+static void init_constants(void)
 {
     num_parse("360", &k360);
     num_parse("0.017453292519943", &kpi180);
     num_parse("160.5", &k160h);
     num_parse("99.5", &k99h);
     num_parse("8000", &kbox);
-    num_parse("1e30", &kbig);
+    num_parse("1000000", &kbig);
+    (void)num_mul(&kbig, &kbig, &kbig);
+    (void)num_mul(&kbig, &kbig, &kbig);
     num_from_int(&kzero, 0);
     num_from_int(&kone, 1);
+    inited = 1;
+}
+
+void turtle_reset(void)
+{
+    if (!inited) init_constants();
     num_from_int(&tx, 0);
     num_from_int(&ty, 0);
     set_heading0();
@@ -69,7 +82,7 @@ static void touch(void)
 }
 
 /* Heading reduced into [0, 360) without loops: h - floor(h/360)*360. */
-static int reduce_heading(void)
+static void reduce_heading(void)
 {
     num_t q;
     int bad = 0;
@@ -79,7 +92,6 @@ static int reduce_heading(void)
     bad |= num_sub(&th, &th, &q);
     /* huge angles lose precision (about 9 digits): keep the result bounded */
     if (bad || num_cmp(&th, &kzero) < 0 || num_cmp(&th, &k360) >= 0) num_from_int(&th, 0);
-    return 0;
 }
 
 int turtle_turn(const num_t *deg)
