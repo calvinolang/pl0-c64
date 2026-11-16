@@ -1,5 +1,38 @@
 # PL/0 for the Commodore 64
 
+<img src="docs/img/wirth.jpg" align="right" width="220" alt="Portrait of the young Niklaus Wirth">
+
+## A homage to Niklaus Wirth
+
+This repo is my modest homage to Niklaus Wirth (1934–2024). I studied
+Mathematics at the University of Florence, where I learned to program in
+Pascal on a Digital VAX/VMS. I have fond memories of those days, and
+this project is a way of saying thank you to the man whose languages
+taught so many of us how to think about programs.
+
+Wirth's main achievements:
+
+- **Pascal** (1970): a small, clean language designed for teaching
+  structured programming, and for years the way students learned to code.
+- **Modula-2 and Oberon**: his later languages, carrying modules and
+  simplicity further; Oberon was also a complete, tiny operating system.
+- **ALGOL W, Euler and PL360**: earlier language designs that shaped
+  Pascal and what came after.
+- **Compiler construction**: stepwise refinement, and compilers small
+  enough to be read and understood, such as the PL/0 teaching compiler
+  that this repo builds on.
+- ***Algorithms + Data Structures = Programs*** (1976): a classic book
+  whose title says what programming is about.
+- **Lilith**, a workstation designed together with its software, and
+  **Wirth's law**: "software is getting slower more rapidly than
+  hardware becomes faster", a plea for lean software.
+- The **ACM Turing Award** (1984), for developing a sequence of
+  innovative computer languages.
+
+<br clear="right">
+
+## The project
+
 Niklaus Wirth's teaching language PL/0, extended with floating-point
 numbers, procedure parameters and turtle graphics, as one program for the
 Commodore 64: a full-screen editor, a compiler and an interpreter in 30 KB.
