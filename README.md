@@ -1,8 +1,10 @@
 # PL/0 for the Commodore 64
 
-<img src="docs/img/wirth.jpg" align="right" width="220" alt="Portrait of the young Niklaus Wirth">
-
 ## A homage to Niklaus Wirth
+
+<table>
+<tr>
+<td valign="top">
 
 This repo is my modest homage to Niklaus Wirth (1934–2024). I studied
 Mathematics at the University of Florence, where I learned to program in
@@ -29,7 +31,14 @@ Wirth's main achievements:
 - The **ACM Turing Award** (1984), for developing a sequence of
   innovative computer languages.
 
-<br clear="right">
+</td>
+<td valign="top" width="240">
+
+<img src="docs/img/wirth.jpg" width="240" alt="Portrait of the young Niklaus Wirth">
+
+</td>
+</tr>
+</table>
 
 ## The project
 
