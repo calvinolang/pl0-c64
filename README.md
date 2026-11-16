@@ -34,7 +34,7 @@ Wirth's main achievements:
 </td>
 <td valign="top" width="240">
 
-<img src="docs/img/wirth.jpg" width="240" alt="Portrait of the young Niklaus Wirth">
+<img src="docs/img/wirth.png" width="240" alt="Portrait of the young Niklaus Wirth">
 
 </td>
 </tr>
